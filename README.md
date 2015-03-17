@@ -1,29 +1,15 @@
-# Ffi::Libevent
+# ffi-libevent
 
-TODO: Write a gem description
+This is a ruby wrapper of [libevent](http://libevent.org/).  [One
+already exists](https://github.com/ayanko/libevent), but this one uses
+[FFI](https://github.com/ffi/ffi) -- is that a good thing?
 
-## Installation
-
-Add this line to your application's Gemfile:
-
-    gem 'ffi-libevent'
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install ffi-libevent
 
 ## Usage
 
-TODO: Write usage instructions here
+TODO
 
-## Contributing
 
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+## License
+
+Licensed under Apache 2.0
