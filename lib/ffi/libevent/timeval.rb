@@ -42,7 +42,21 @@ class FFI::Libevent::Timeval < FFI::Struct
       t[:tv_usec] = us
       t
     end
-    alias :useconds :microseconds
     alias :us :microseconds
+
+    def milliseconds ms
+      self.microseconds(ms*1000)
+    end
+    alias :ms :milliseconds
+
+    def minutes m
+      self.seconds(m*60)
+    end
+    alias :m :minutes
+
+    def hours h
+      self.minutes(h*60)
+    end
+    alias :h :hours
   end
 end
