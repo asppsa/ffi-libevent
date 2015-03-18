@@ -46,7 +46,7 @@ describe FFI::Libevent::Event do
 
   describe "activating an event" do
     let(:sockets) { UNIXSocket.pair }
-    let(:closer) { described_class.new(base, sockets.last, FFI::Libevent::EV_PERSIST) { base.loopexit } }
+    let(:closer) { described_class.new(base, sockets.last, 0) { base.loopexit } }
     let(:writer) { described_class.new(base, sockets.first, FFI::Libevent::EV_WRITE) { sockets.first << "test" } }
     let(:reader) { described_class.new(base, sockets.last, FFI::Libevent::EV_READ) { closer.active!(FFI::Libevent::EV_READ, 0) if sockets.last.recv(4) == "test" } }
 
@@ -62,7 +62,7 @@ describe FFI::Libevent::Event do
     it "receives the event" do
       pid = Process.fork do
         base.reinit
-        trapper = described_class.new(base, "USR1", FFI::Libevent::EV_SIGNAL | FFI::Libevent::EV_PERSIST) { base.loopbreak }
+        trapper = described_class.new(base, "USR1", FFI::Libevent::EV_SIGNAL) { base.loopbreak }
         trapper.add!
         base.loop
         expect(base.got_break?).to be true
@@ -85,7 +85,9 @@ describe FFI::Libevent::Event do
 
   describe "multithreaded behaviour" do
     it "receives the event" do
-      trapper = described_class.new(base, "KILL", FFI::Libevent::EV_SIGNAL | FFI::Libevent::EV_PERSIST) { base.loopbreak }
+      trapper = described_class.new(base, -1, 0) do
+        base.loopbreak
+      end
       trapper.add!
 
       # Start the loop in a thread
@@ -97,8 +99,7 @@ describe FFI::Libevent::Event do
       trapper.active! FFI::Libevent::EV_SIGNAL, 0
       t1.join
       
-      ## Why isn't this true?
-      #expect(base.got_break?).to be true
+      expect(base.got_break?).to be true
     end
   end
 end
