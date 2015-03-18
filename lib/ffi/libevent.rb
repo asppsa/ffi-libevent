@@ -23,10 +23,10 @@ module FFI
 
     # This function is available on non-windows platforms
     if RUBY_PLATFORM =~ /windows/
-      ffi_lib 'event'
+      ffi_lib 'event_core'
     else
       ffi_lib_flags :now, :global
-      ffi_lib 'event', 'event_pthreads'
+      ffi_lib 'event_core', 'event_pthreads'
       attach_function :_use_pthreads, :evthread_use_pthreads, [], :int
     end
 
@@ -44,13 +44,13 @@ module FFI
       methods
     end
 
-    def self.use_pthreads
-      raise "not linked to pthreads" unless self.respond_to? :_use_pthreads
-      raise "pthreads not available" unless _use_pthreads == 0
-    end
-    
-    def self.use_windows_threads
-      raise "not implemented"
+    def self.use_threads!
+      if RUBY_PLATFORM =~ /windows/
+        raise "not implemented"
+      else
+        raise "not linked to pthreads" unless self.respond_to? :_use_pthreads
+        raise "pthreads not available" unless _use_pthreads == 0
+      end
     end
   end
 end

@@ -80,4 +80,4 @@ end
 require 'bundler/setup'
 require 'ffi/libevent'
 
-FFI::Libevent.use_pthreads
+FFI::Libevent.use_threads!
