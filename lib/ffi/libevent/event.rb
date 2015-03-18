@@ -45,6 +45,8 @@ class FFI::Libevent::Event < FFI::AutoPointer
     end
 
     ptr = FFI::Libevent.event_new base, fp, flags, block, nil
+    raise "Could not create event" if ptr.null?
+
     super ptr, self.class.method(:release)
   end
 
