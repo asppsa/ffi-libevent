@@ -30,12 +30,18 @@ module FFI::Libevent
 end
 
 class FFI::Libevent::Event < FFI::AutoPointer
-  def initialize base, fp, flags, &block
+  def initialize base, what, flags, &block
+    # Prevent these from being GC'ed
+    @what = what
+    @block = block
+
     # Deal with ruby IO objects and signals
-    if fp.is_a? IO
-      fp = fp.fileno
-    elsif fp.is_a? String
-      fp = Signal.list[fp]
+    if what.is_a? IO
+      fp = what.fileno
+    elsif what.is_a? String
+      fp = Signal.list[what]
+    else
+      fp = what
     end
 
     ptr = FFI::Libevent.event_new base, fp, flags, block, nil
