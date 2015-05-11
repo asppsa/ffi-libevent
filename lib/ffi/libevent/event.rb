@@ -20,53 +20,58 @@ module FFI::Libevent
   EV_PERSIST = 0x10
   EV_ET = 0x20
 
-  callback :callback_fn, [:int, :short, :pointer], :void
-  attach_function :event_new, [:pointer, :int, :short, :callback_fn, :pointer], :pointer
+  attach_function :event_new, [:pointer, :int, :short, :event_callback, :pointer], :pointer
   attach_function :event_free, [:pointer], :void
   attach_function :event_add, [:pointer, :pointer], :int
   attach_function :event_del, [:pointer], :int
   #attach_function :event_remove_timer, [:pointer], :int
   attach_function :event_active, [:pointer, :int, :short], :void
-end
 
-class FFI::Libevent::Event < FFI::AutoPointer
-  def initialize base, what, flags, &block
-    # Prevent these from being GC'ed
-    @what = what
-    @block = block
 
-    # Deal with ruby IO objects and signals
-    if what.is_a? IO
-      fp = what.fileno
-    elsif what.is_a? String
-      fp = Signal.list[what]
-    else
-      fp = what
+  class Event < FFI::AutoPointer
+    include FFI::Libevent
+
+    def initialize base, what, flags, &block
+      # Prevent these from being GC'ed
+      @what = what
+      @block = block
+
+      ptr = event_new base, Event.fp_from_what(what), flags, block, nil
+      raise "Could not create event" if ptr.null?
+
+      super ptr, self.class.method(:release)
     end
 
-    ptr = FFI::Libevent.event_new base, fp, flags, block, nil
-    raise "Could not create event" if ptr.null?
+    def add! tv=nil
+      event_add self, tv
+    end
 
-    super ptr, self.class.method(:release)
-  end
+    def del!
+      event_del self
+    end
 
-  def add! tv=nil
-    FFI::Libevent.event_add self, tv
-  end
+    # def remove_timer!
+    #   FFI::Libevent.event_remove_timer self
+    # end
 
-  def del!
-    FFI::Libevent.event_del self
-  end
+    def active! flag, ncalls
+      event_active self, flag, ncalls
+    end
 
-  # def remove_timer!
-  #   FFI::Libevent.event_remove_timer self
-  # end
+    ##
+    # Deal with ruby IO objects and signals
+    def self.fp_from_what what
+      if what.is_a? IO
+        what.fileno
+      elsif what.is_a? String
+        Signal.list[what]
+      else
+        what
+      end
+    end
 
-  def active! flag, ncalls
-    FFI::Libevent.event_active self, flag, ncalls
-  end
-
-  def self.release ptr
-    FFI::Libevent.event_free ptr
+    def self.release ptr
+      event_free ptr
+    end
   end
 end
