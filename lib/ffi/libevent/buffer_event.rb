@@ -132,9 +132,9 @@ module FFI::Libevent
       cbs.each_pair do |k,cb|
         if cb.is_a? Proc
           @cache[k] = if k == :eventcb
-                        proc{ |ptr, events| cb.call(self, events) }
+                        proc{ |_, events| cb.call(self, events) }
                       else
-                        proc{ cb.call(self) }
+                        cb.curry(2).call(self)
                       end
         elsif cb.nil?
           @cache.delete k
