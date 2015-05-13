@@ -79,5 +79,12 @@ end
 
 require 'bundler/setup'
 require 'ffi/libevent'
+require 'logger'
 
+# Thread-safety
 FFI::Libevent.use_threads!
+
+# Ignore warnings
+logger = Logger.new(STDERR)
+logger.level = Logger::ERROR
+FFI::Libevent.logger = logger
