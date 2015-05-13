@@ -23,8 +23,12 @@ module FFI::Libevent
   FEATURE_ET = 1
   FEATURE_O1 = 2
   FEATURE_FDS = 4
+  enum FFI::Type::INT,
+       :config_feature, [:et, FEATURE_ET,
+                         :o1, FEATURE_O1,
+                         :fds, FEATURE_FDS]
   
-  attach_function :config_require_features, :event_config_require_features, [:pointer, :int], :int
+  attach_function :config_require_features, :event_config_require_features, [:pointer, :config_feature], :int
 
   FLAG_NOLOCK = 0x01
   FLAG_IGNORE_ENV = 0x02
@@ -32,8 +36,15 @@ module FFI::Libevent
   FLAG_NO_CACHE_TIME = 0x08
   FLAG_EPOLL_USE_CHANGELIST = 0x10
   FLAG_PRECISE_TIMER = 0x20
+  enum FFI::Type::INT,
+       :config_flag, [:nolock, FLAG_NOLOCK,
+                      :ignore_env, FLAG_IGNORE_ENV,
+                      :startup_iocp, FLAG_STARTUP_IOCP,
+                      :no_cache_time, FLAG_NO_CACHE_TIME,
+                      :epoll_use_changelist, FLAG_EPOLL_USE_CHANGELIST,
+                      :precise_timer, FLAG_PRECISE_TIMER]
 
-  attach_function :config_set_flag, :event_config_set_flag, [:pointer, :int], :int
+  attach_function :config_set_flag, :event_config_set_flag, [:pointer, :config_flag], :int
 
   # Only in 2.1
   #attach_function :config_set_max_dispatch_interval, :event_config_set_max_dispatch_interval, [:pointer, :pointer, :int, :int], :int

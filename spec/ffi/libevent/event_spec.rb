@@ -7,14 +7,14 @@ describe FFI::Libevent::Event do
   describe ".new" do
     it "returns an object of the correct class" do
       fps = UNIXSocket.pair
-      expect(described_class.new(base, fps.first, FFI::Libevent::EV_READ) { base.loopexit }).
+      expect(described_class.new(base, fps.first, :read) { base.loopexit }).
         to be_a described_class
     end
   end
 
   describe "reading a socket" do
     let(:sockets) { UNIXSocket.pair }
-    subject{ described_class.new(base, sockets.first, FFI::Libevent::EV_READ) { base.loopexit if sockets.first.recv(4) == 'test' } }
+    subject{ described_class.new(base, sockets.first, :read) { base.loopexit if sockets.first.recv(4) == 'test' } }
 
     it "reads from the socket and exits" do
       sockets.last << "test"
@@ -33,8 +33,8 @@ describe FFI::Libevent::Event do
 
   describe "reading and writing a socket" do
     let(:sockets) { UNIXSocket.pair }
-    let(:writer) { described_class.new(base, sockets.first, FFI::Libevent::EV_WRITE) { sockets.first << "test" } }
-    let(:reader) { described_class.new(base, sockets.last, FFI::Libevent::EV_READ) { base.loopexit if sockets.last.recv(4) == "test" } }
+    let(:writer) { described_class.new(base, sockets.first, :write) { sockets.first << "test" } }
+    let(:reader) { described_class.new(base, sockets.last, :read) { base.loopexit if sockets.last.recv(4) == "test" } }
 
     it "can receive the data and close the loop" do
       reader.add!
@@ -47,8 +47,8 @@ describe FFI::Libevent::Event do
   describe "activating an event" do
     let(:sockets) { UNIXSocket.pair }
     let(:closer) { described_class.new(base, sockets.last, 0) { base.loopexit } }
-    let(:writer) { described_class.new(base, sockets.first, FFI::Libevent::EV_WRITE) { sockets.first << "test" } }
-    let(:reader) { described_class.new(base, sockets.last, FFI::Libevent::EV_READ) { closer.active!(FFI::Libevent::EV_READ, 0) if sockets.last.recv(4) == "test" } }
+    let(:writer) { described_class.new(base, sockets.first, :write) { sockets.first << "test" } }
+    let(:reader) { described_class.new(base, sockets.last, :read) { closer.active!(:read, 0) if sockets.last.recv(4) == "test" } }
 
     it "can receive the data and close the loop" do
       reader.add!
@@ -62,7 +62,7 @@ describe FFI::Libevent::Event do
     it "receives the event" do
       pid = Process.fork do
         base.reinit
-        trapper = described_class.new(base, "USR1", FFI::Libevent::EV_SIGNAL) { base.loopbreak }
+        trapper = described_class.new(base, "USR1", :signal) { base.loopbreak }
         trapper.add!
         base.loop
         expect(base.got_break?).to be true
@@ -96,7 +96,7 @@ describe FFI::Libevent::Event do
       end
 
       # Tell the loop to stop from this thread
-      trapper.active! FFI::Libevent::EV_SIGNAL, 0
+      trapper.active! :signal, 0
       t1.join
       
       expect(base.got_break?).to be true

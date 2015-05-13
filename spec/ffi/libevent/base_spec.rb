@@ -29,8 +29,12 @@ describe FFI::Libevent::Base do
       end
     end
 
-    context "with :flags options" do
+    context "with :flags as ints" do
       include_examples :returns, described_class.new(:flags => FFI::Libevent::FLAG_NOLOCK | FFI::Libevent::FLAG_EPOLL_USE_CHANGELIST)
+    end
+
+    context "with :flags as symbols" do
+      include_examples :returns, described_class.new(:flags => :nolock)
     end
   end
 

@@ -26,8 +26,12 @@ module FFI::Libevent
   EVLOOP_ONCE = 0x01
   EVLOOP_NONBLOCK = 0x02
   EVLOOP_NO_EXIT_ON_EMPTY = 0x04
+  enum FFI::Type::INT,
+       :loop_flag, [:once, EVLOOP_ONCE,
+                    :nonblock, EVLOOP_NONBLOCK,
+                    :no_exit_on_empty, EVLOOP_NO_EXIT_ON_EMPTY]
 
-  attach_function :base_loop, :event_base_loop, [:pointer, :int], :int, :blocking => true
+  attach_function :base_loop, :event_base_loop, [:pointer, :loop_flag], :int, :blocking => true
   attach_function :base_dispatch, :event_base_dispatch, [:pointer], :int, :blocking => true
 
   attach_function :base_loopexit, :event_base_loopexit, [:pointer, :pointer], :int, :blocking => true

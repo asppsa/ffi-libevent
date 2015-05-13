@@ -13,6 +13,7 @@
 # limitations under the License.
 
 module FFI::Libevent
+
   EV_TIMEOUT = 0x01
   EV_READ = 0x02
   EV_WRITE = 0x04
@@ -20,13 +21,20 @@ module FFI::Libevent
   EV_PERSIST = 0x10
   EV_ET = 0x20
 
-  attach_function :event_new, [:pointer, :int, :short, :event_callback, :pointer], :pointer
+  enum FFI::Type::SHORT,
+       :what, [:timeout, EV_TIMEOUT,
+               :read, EV_READ,
+               :write, EV_WRITE,
+               :signal, EV_SIGNAL,
+               :persist, EV_PERSIST,
+               :et, EV_ET]
+
+  attach_function :event_new, [:pointer, :int, :what, :event_callback, :pointer], :pointer
   attach_function :event_free, [:pointer], :void
   attach_function :event_add, [:pointer, :pointer], :int
   attach_function :event_del, [:pointer], :int
   #attach_function :event_remove_timer, [:pointer], :int
-  attach_function :event_active, [:pointer, :int, :short], :void
-
+  attach_function :event_active, [:pointer, :what, :short], :void
 
   class Event < FFI::AutoPointer
     include FFI::Libevent
@@ -65,6 +73,8 @@ module FFI::Libevent
         what.fileno
       elsif what.is_a? String
         Signal.list[what]
+      elsif what.nil?
+        -1
       else
         what
       end
