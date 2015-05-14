@@ -200,9 +200,10 @@ module FFI::Libevent
       EvBuffer.new ptr
     end
 
-    def write what, length=nil
+    def write what, len=nil
       if what.is_a? String
-        bufferevent_write self, what, what.bytesize
+        len ||= what.bytesize
+        bufferevent_write self, what, len
       elsif what.is_a? EvBuffer
         res = bufferevent_write_buffer self, what
         raise "Could not write from evbuffer" unless res == 0
@@ -211,19 +212,35 @@ module FFI::Libevent
       end
     end
 
-    def read what
-      if what.is_a? String
-        bufferevent_read self, what, what.bytesize
+    def read what, len=nil
+      if what.is_a? Integer
+        mem = FFI::MemoryPointer.new(what)
+        res = bufferevent_read self, mem, what
+        raise "Could not read" if res == -1
+        mem.read_string(res)
       elsif what.is_a? EvBuffer
         res = bufferevent_read_buffer self, what
         raise "Could not read into evbuffer" unless res == 0
+      elsif what.is_a?(FFI::Pointer) && len.is_a?(Integer)
+        res = bufferevent_read self, what, len
+        raise "Could not read into evbuffer" if res == -1
+        res
       else
         raise "Cannot read into #{what}"
       end
     end
 
-    def set_timeouts timeout_read, timeout_write
-      bufferevent_set_timeouts(self, timeout_read, timeout_write)
+    def set_timeouts to_read, to_write
+      tv_read, tv_write = [to_read, to_write].map do |timeout|
+        case timeout
+        when Timeval, nil
+          timeout
+        when Numeric
+          Timeval.s timeout
+        end
+      end
+
+      bufferevent_set_timeouts(self, tv_read, tv_write)
     end
 
     def flush iotype=(EV_READ|EV_WRITE), mode=:normal
