@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+require 'socket'
+
 module FFI::Libevent
 
   BEV_EVENT_READING   = 0x01
@@ -134,7 +136,7 @@ module FFI::Libevent
           @cache[k] = if k == :eventcb
                         proc{ |_, events| cb.call(self, events) }
                       else
-                        cb.curry(2).call(self)
+                        proc{ cb.call(self) }
                       end
         elsif cb.nil?
           @cache.delete k
