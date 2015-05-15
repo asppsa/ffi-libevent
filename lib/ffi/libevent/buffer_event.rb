@@ -75,7 +75,7 @@ module FFI::Libevent
   attach_function :bufferevent_setfd, [:pointer, :int], :int
   attach_function :bufferevent_getfd, [:pointer], :int
 
-  attach_function :bufferevent_lock, [:pointer], :void
+  attach_function :bufferevent_lock, [:pointer], :void, :blocking => true
   attach_function :bufferevent_unlock, [:pointer], :void
 
   class BufferEvent < FFI::AutoPointer
@@ -232,7 +232,7 @@ module FFI::Libevent
       end
     end
 
-    def set_timeouts to_read, to_write
+    def set_timeouts to_read=nil, to_write=nil
       tv_read, tv_write = [to_read, to_write].map do |timeout|
         case timeout
         when Timeval, nil
@@ -264,7 +264,7 @@ module FFI::Libevent
     end
 
     def fd
-      res = bufferever_getfd(self)
+      res = bufferevent_getfd(self)
       raise "Could not get fd" if res == -1
       res
     end
@@ -277,9 +277,10 @@ module FFI::Libevent
       bufferevent_unlock(self)
     end
 
-    def locked &block
+    def locked
+      raise "requires a block" unless block_given?
       lock
-      block.call
+      yield
     ensure
       unlock
     end

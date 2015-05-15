@@ -1,5 +1,5 @@
 describe FFI::Libevent::BufferEvent do
-  let(:base) { FFI::Libevent::Base.new }
+  let(:base) { FFI::Libevent::Base.new num_priorities: 10 }
   let(:pair) { UNIXSocket.pair }
 
   describe '.socket' do
@@ -489,12 +489,231 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  pending "#set_timeouts"
-  pending '#flush'
-  pending '#fd='
-  pending '#fd'
-  pending '#lock'
-  pending '#unlock'
-  pending '#locked'
+  describe "#set_timeouts" do
+    let(:bufferevent){ described_class.socket base, pair[0] }
+    let(:timeout){ 0.5 }
 
+    before do
+      timer = FFI::Libevent::Event.new(base, "INT", :signal) { base.loopbreak }
+      timer.add! FFI::Libevent::Timeval.seconds(timeout)
+    end
+
+    shared_examples :does_nothing do
+      it "never calls the eventcb" do
+        called = false
+        cb = proc{ called = true }
+
+        bufferevent.setcb eventcb: cb
+
+        base.loop
+        expect(base.got_break?).to be true
+        expect(called).to be false
+      end
+    end
+
+    context "when not set" do
+      include_examples :does_nothing
+    end
+
+    context "when set to nil" do
+      before do
+        bufferevent.set_timeouts nil, nil
+      end
+
+      include_examples :does_nothing
+    end
+
+    context "when read timeout is not nil" do
+      let(:read_timeout){ timeout/2 }
+
+      context "when reading is not enabled" do
+        before do
+          bufferevent.set_timeouts(read_timeout)
+          bufferevent.disable :read
+        end
+
+        include_examples :does_nothing
+      end
+
+      context "when reading is enabled" do
+        before do
+          bufferevent.enable :read
+        end
+
+        shared_examples :read_timeout do
+          it "calls the eventcb after the given number of seconds" do
+            start = Time.now
+            time_called = nil
+            cb = proc{ time_called = Time.now }
+            bufferevent.setcb eventcb: cb
+
+            base.loop
+            expect(base.got_break?).to be true
+            expect(time_called).not_to be_nil
+            expect(time_called - start).to be_within(0.005).of(read_timeout)
+          end
+
+          it "passes the READING flag to the eventcb" do
+            equal = false
+            read = false
+            cb = proc do |bev,events|
+              equal = bev == bufferevent
+              read = events & FFI::Libevent::BEV_EVENT_READING != 0
+            end
+
+            bufferevent.setcb eventcb: cb
+
+            base.loop
+            expect(base.got_break?).to be true
+            expect(equal).to be true
+            expect(read).to be true
+          end
+
+          it "passes the TIMEOUT flag to the eventcb" do
+            timeout = false
+            cb = proc do |bev,events|
+              timeout = events & FFI::Libevent::BEV_EVENT_TIMEOUT != 0
+            end
+
+            bufferevent.setcb eventcb: cb
+
+            base.loop
+            expect(base.got_break?).to be true
+            expect(timeout).to be true
+          end
+        end
+
+        context "when set to a number" do
+          before do
+            bufferevent.set_timeouts(read_timeout)
+          end
+
+          include_examples :read_timeout
+        end
+
+        context "when set to a Timeval" do
+          let(:tv){ FFI::Libevent::Timeval.us(read_timeout*1_000_000) }
+          before do
+            bufferevent.set_timeouts(tv)
+          end
+
+          include_examples :read_timeout
+        end
+      end
+    end
+
+    context "when write timeout is not nil" do
+      let(:write_timeout){ timeout/2 }
+
+      ##
+      # Simulating a write timeout seems to be too hard
+      context "when writing is not enabled" do
+        before do
+          bufferevent.set_timeouts(nil, write_timeout)
+          bufferevent.disable :write
+        end
+
+        include_examples :does_nothing
+      end
+    end
+  end
+
+  describe '#priority=' do
+    let(:bufferevent){ described_class.socket base, pair[0] }
+
+    it "works for any positive integer" do
+      expect{ bufferevent.priority = -1 }.to raise_error
+      expect{ bufferevent.priority = 0 }.not_to raise_error
+      expect{ bufferevent.priority = 9 }.not_to raise_error
+    end
+  end
+
+  describe '#fd' do
+    let(:bufferevent){ described_class.socket base, pair[0] }
+
+    it "returns the file number of the bufferevent" do
+      expect(bufferevent.fd).to eq pair[0].fileno
+    end
+  end
+
+  describe '#fd=' do
+    let(:bufferevent){ described_class.socket base, pair[0] }
+
+    context "with a Socket object" do
+      it "replaces the file descriptor" do
+        bufferevent.fd = pair[1]
+        expect(bufferevent.fd).to eq pair[1].fileno
+      end
+    end
+
+    context "with nil" do
+      it "sets the fileno to -1" do
+        bufferevent.fd = nil
+        expect{ bufferevent.fd }.to raise_error
+      end
+    end
+  end
+
+  describe '#locked' do
+    context "when not threadsafe" do
+      let(:bufferevent){ described_class.socket base, pair[0] }
+
+      it "works (but has no effect)" do
+        called = false
+        bufferevent.locked do
+          called = true
+        end
+        expect(called).to be true
+      end
+    end
+
+    context "when threadsafe" do
+      let(:bufferevent){ described_class.socket base, pair[0], :threadsafe }
+
+      it "works" do
+        called = false
+        bufferevent.locked do
+          called = true
+        end
+        expect(called).to be true
+      end
+
+      it "can be called from other threads" do
+        called = false
+        t1 = Thread.new do
+          bufferevent.locked do
+            called = true
+          end
+        end
+
+        t1.join
+
+        expect(called).to be true
+      end
+
+      it "serializes operations" do
+        time1 = nil
+        time2 = nil
+
+        t1 = Thread.new do
+          bufferevent.locked do
+            time1 = Time.now
+            sleep 0.5
+          end
+        end
+
+        t2 = Thread.new do
+          sleep 0.25
+          bufferevent.locked do
+            time2 = Time.now
+          end
+        end
+
+        t1.join
+        t2.join
+
+        expect(time2 - time1).to be_within(0.001).of(0.5)
+      end
+    end
+  end
 end

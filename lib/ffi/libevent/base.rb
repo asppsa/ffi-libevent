@@ -51,6 +51,8 @@ module FFI::Libevent
   # Won't work due to garbage collection of the callback
   #attach_function :base_once, :event_base_once, [:pointer, :int, :short, :event_callback, :pointer, :pointer], :int
 
+  attach_function :base_priority_init, :event_base_priority_init, [:pointer, :int], :int
+
   class Base < FFI::AutoPointer
     include FFI::Libevent
 
@@ -63,6 +65,12 @@ module FFI::Libevent
             end
 
       raise "Could not satisfy requirements" if ptr.null?
+
+      if opts && opts[:num_priorities]
+        res = base_priority_init ptr, opts[:num_priorities]
+        raise "Could not set priorities" unless res == 0
+      end
+
       super ptr, self.class.method(:release)
     end
 
