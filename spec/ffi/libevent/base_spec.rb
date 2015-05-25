@@ -49,38 +49,38 @@ describe FFI::Libevent::Base do
       end
     end
 
-    describe "#loop" do
+    describe "#loop!" do
       context "without flags" do
         it "returns 1 when there are no events" do
-          expect(subject.loop).to eq 1
+          expect(subject.loop!).to eq 1
         end
       end
 
       context "with the EVLOOP_NO_EXIT_ON_EMPTY flag" do
         it "returns 1 when there are no events" do
-          expect(subject.loop FFI::Libevent::EVLOOP_NO_EXIT_ON_EMPTY).to eq 1
+          expect(subject.loop! FFI::Libevent::EVLOOP_NO_EXIT_ON_EMPTY).to eq 1
         end
       end
     end
 
-    describe "#dispatch" do
+    describe "#dispatch!" do
       it "returns 1 when there are no events" do
-        expect(subject.dispatch).to eq 1
+        expect(subject.dispatch!).to eq 1
       end
     end
 
-    describe "#loopexit" do
+    describe "#loopexit!" do
       context "when no loop is running" do
         it "returns 0" do
-          expect(subject.loopexit).to eq 0
+          expect(subject.loopexit!).to eq 0
         end
       end
     end
 
-    describe "#loopbreak" do
+    describe "#loopbreak!" do
       context "when no loop is running" do
         it "returns 0" do
-          expect(subject.loopbreak).to eq 0
+          expect(subject.loopbreak!).to eq 0
         end
       end
     end

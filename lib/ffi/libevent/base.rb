@@ -78,19 +78,19 @@ module FFI::Libevent
       base_get_method(self).to_sym
     end
 
-    def loop flags=0
+    def loop! flags=0
       base_loop(self, flags)
     end
 
-    def dispatch
+    def dispatch!
       base_dispatch(self)
     end
 
-    def loopexit tv=nil
+    def loopexit! tv=nil
       base_loopexit(self, tv)
     end
 
-    def loopbreak
+    def loopbreak!
       base_loopbreak(self)
     end
 
@@ -116,7 +116,7 @@ module FFI::Libevent
     #   end
     # end
 
-    def reinit
+    def reinit!
       base_reinit(self)
     end
 
