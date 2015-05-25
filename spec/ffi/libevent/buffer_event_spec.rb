@@ -107,24 +107,24 @@ describe FFI::Libevent::BufferEvent do
 
   end
 
-  describe '#dns_error' do
+  describe '#dns_error?' do
     let(:bufferevent) { described_class.socket base }
 
     before do
       bufferevent.connect_hostname :inet, 'nonexist.example.com', 80
-      base.loop :nonblock
+      base.loop! :nonblock
     end
 
     it "returns a Error::GAI object" do
-      expect(bufferevent.dns_error).to be_a FFI::Libevent::Error::GAI
-      expect(bufferevent.dns_error.to_s).to eq "nodename nor servname provided, or not known"
+      expect(bufferevent.dns_error?).to be_a FFI::Libevent::Error::GAI
+      expect(bufferevent.dns_error?.to_s).to eq "nodename nor servname provided, or not known"
     end
   end
 
-  describe '#setcb' do
+  describe '#set_callbacks' do
     let(:bufferevent) { described_class.socket base, pair[0] }
 
-    it "connects the readcb" do
+    it "connects the read callback" do
       called = false
       equal = false
 
@@ -133,33 +133,33 @@ describe FFI::Libevent::BufferEvent do
         equal = bev == bufferevent
       end
 
-      bufferevent.setcb readcb: cb
-      bufferevent.enable :read
+      bufferevent.set_callbacks read: cb
+      bufferevent.enable! :read
 
       pair[1] << 'testing 1 2 3 4'
-      base.loop :nonblock
+      base.loop! :nonblock
 
       expect(called).to be true
       expect(equal).to be true
     end
 
-    it "connects the writecb" do
+    it "connects the write callback" do
       called = false
       equal = false
       cb = proc do |bev|
         called = true
         equal = bev == bufferevent
       end
-      bufferevent.setcb writecb: cb
+      bufferevent.set_callbacks write: cb
       expect(bufferevent.write "test").to eq 0
-      base.loop :nonblock
+      base.loop! :nonblock
 
       expect(called).to be true
       expect(equal).to be true
     end
   end
 
-  describe '#enable and #disable' do
+  describe '#enable! and #disable!' do
     let(:bufferevent) { described_class.socket base, pair[0] }
 
     context "reading" do
@@ -169,9 +169,9 @@ describe FFI::Libevent::BufferEvent do
 
         expect(bufferevent.enabled? :read).to be false
         expect(bufferevent.enabled? FFI::Libevent::EV_READ).to be false
-        bufferevent.setcb readcb: cb
+        bufferevent.set_callbacks read: cb
         pair[1] << 'testing 1 2 3 4'
-        base.loop :nonblock
+        base.loop! :nonblock
 
         expect(called).to be false
       end
@@ -180,10 +180,10 @@ describe FFI::Libevent::BufferEvent do
         called = false
         cb = proc{ called = true }
 
-        bufferevent.setcb readcb: cb
-        bufferevent.enable :read
+        bufferevent.set_callbacks read: cb
+        bufferevent.enable! :read
         pair[1] << 'testing 1 2 3 4'
-        base.loop :nonblock
+        base.loop! :nonblock
 
         expect(called).to be true
       end
@@ -192,10 +192,10 @@ describe FFI::Libevent::BufferEvent do
         called = false
         cb = proc{ called = true }
 
-        bufferevent.setcb readcb: cb
-        bufferevent.enable FFI::Libevent::EV_READ
+        bufferevent.set_callbacks read: cb
+        bufferevent.enable! FFI::Libevent::EV_READ
         pair[1] << 'testing 1 2 3 4'
-        base.loop :nonblock
+        base.loop! :nonblock
 
         expect(called).to be true
       end
@@ -204,11 +204,11 @@ describe FFI::Libevent::BufferEvent do
         called = false
         cb = proc{ called = true }
 
-        bufferevent.setcb readcb: cb
-        bufferevent.enable FFI::Libevent::EV_READ
-        bufferevent.disable :read
+        bufferevent.set_callbacks read: cb
+        bufferevent.enable! FFI::Libevent::EV_READ
+        bufferevent.disable! :read
         pair[1] << 'testing 1 2 3 4'
-        base.loop :nonblock
+        base.loop! :nonblock
 
         expect(called).to be false
       end
@@ -221,9 +221,9 @@ describe FFI::Libevent::BufferEvent do
 
         expect(bufferevent.enabled? :write).to be true
         expect(bufferevent.enabled?(FFI::Libevent::EV_READ | FFI::Libevent::EV_WRITE)).to be false
-        bufferevent.setcb writecb: cb
+        bufferevent.set_callbacks write: cb
         expect(bufferevent.write "test").to eq 0
-        base.loop :nonblock
+        base.loop! :nonblock
 
         expect(called).to be true
       end
@@ -232,10 +232,10 @@ describe FFI::Libevent::BufferEvent do
         called = false
         cb = proc{ called = true }
 
-        bufferevent.setcb writecb: cb
-        bufferevent.disable :write
+        bufferevent.set_callbacks write: cb
+        bufferevent.disable! :write
         expect(bufferevent.write "test").to eq 0
-        base.loop :nonblock
+        base.loop! :nonblock
 
         expect(called).to be false
       end
@@ -244,14 +244,14 @@ describe FFI::Libevent::BufferEvent do
         called = false
         cb = proc{ called = true }
 
-        bufferevent.setcb writecb: cb
-        bufferevent.disable :write
+        bufferevent.set_callbacks write: cb
+        bufferevent.disable! :write
         expect(bufferevent.enabled? :write).to be false
         expect(bufferevent.write "test").to eq 0
-        base.loop :nonblock
+        base.loop! :nonblock
 
-        bufferevent.enable :write
-        base.loop :nonblock
+        bufferevent.enable! :write
+        base.loop! :nonblock
 
         expect(called).to be true
       end
@@ -265,20 +265,19 @@ describe FFI::Libevent::BufferEvent do
       context "zero low-water mark" do
         it "means the writecb will be called when the buffer is empty" do
           called = false
-          cb = proc{ called = true }
 
           bufferevent.set_watermark :write, 0
-          bufferevent.setcb writecb: cb
+          bufferevent.set_callbacks write: proc{ called = true }
 
           # This will easily drain
           expect(bufferevent.write("t" * 1)).to eq 0
-          base.loop :nonblock
+          base.loop! :nonblock
           expect(called).to be true
 
           # This probably won't drain
           called = false
           expect(bufferevent.write("t" * 1024**2)).to eq 0
-          base.loop :nonblock
+          base.loop! :nonblock
           expect(called).to be false
         end
       end
@@ -290,12 +289,12 @@ describe FFI::Libevent::BufferEvent do
 
           # Don't call until there are fewer than 1024 bytes left
           bufferevent.set_watermark :write, 1024
-          bufferevent.setcb writecb: cb
+          bufferevent.set_callbacks write: cb
 
           # Write a MiB.  This (probably) won't be written in a single
           # go
           expect(bufferevent.write("t" * 1024**2)).to eq 0
-          base.loop :nonblock
+          base.loop! :nonblock
 
           expect(called).to be false
         end
@@ -308,11 +307,11 @@ describe FFI::Libevent::BufferEvent do
           called = false
           cb = proc{ called = true }
 
-          bufferevent.enable :read
+          bufferevent.enable! :read
           bufferevent.set_watermark :read, 0
-          bufferevent.setcb readcb: cb
+          bufferevent.set_callbacks read: cb
           pair[1] << 't'
-          base.loop :nonblock
+          base.loop! :nonblock
 
           expect(called).to be true
         end
@@ -323,20 +322,20 @@ describe FFI::Libevent::BufferEvent do
           called = false
           cb = proc{ called = true }
 
-          bufferevent.enable :read
-          bufferevent.setcb readcb: cb
+          bufferevent.enable! :read
+          bufferevent.set_callbacks read: cb
 
           # Don't invoke callback till there are 10 bytes
           bufferevent.set_watermark :read, 10
 
           # Write 9 bytes
           pair[1] << ('t' * 9)
-          base.loop :nonblock
+          base.loop! :nonblock
           expect(called).to be false
 
           # Write 1 byte
           pair[1] << 't'
-          base.loop :nonblock
+          base.loop! :nonblock
           expect(called).to be true
         end
       end
@@ -368,7 +367,7 @@ describe FFI::Libevent::BufferEvent do
       shared_examples :writes_something do
         before do
           bufferevent.write what, len
-          base.loop :nonblock
+          base.loop! :nonblock
         end
 
         it "writes all or part of the string, according to len" do
@@ -400,13 +399,13 @@ describe FFI::Libevent::BufferEvent do
       let(:str){ "this is a test" }
       let(:evbuffer) do
         evbuffer = FFI::Libevent::EvBuffer.new
-        evbuffer.add! str
+        evbuffer.add str
         evbuffer
       end
 
       it "writes the contents of the EvBuffer" do
         bufferevent.write evbuffer
-        base.loop :nonblock
+        base.loop! :nonblock
         result = pair[1].recv(str.length)
         expect(result).not_to be_empty
         expect(result).to eq str
@@ -426,8 +425,8 @@ describe FFI::Libevent::BufferEvent do
 
         pair[1] << str
 
-        bufferevent.enable :read
-        base.loop :nonblock
+        bufferevent.enable! :read
+        base.loop! :nonblock
         bufferevent.read evbuffer
         expect(evbuffer.length).to eq str.length
       end
@@ -450,8 +449,8 @@ describe FFI::Libevent::BufferEvent do
         before{ pair[1] << str }
 
         it "returns a string of length equal to the parameter" do
-          bufferevent.enable :read
-          base.loop :nonblock
+          bufferevent.enable! :read
+          base.loop! :nonblock
           expect(bufferevent.read 2).to eq str[0..1]
         end
       end
@@ -460,8 +459,8 @@ describe FFI::Libevent::BufferEvent do
         before{ pair[1] << str }
 
         it "returns the whole string" do
-          bufferevent.enable :read
-          base.loop :nonblock
+          bufferevent.enable! :read
+          base.loop! :nonblock
           expect(bufferevent.read 1024).to eq str
         end
       end
@@ -474,8 +473,8 @@ describe FFI::Libevent::BufferEvent do
 
       before do
         pair[1] << str
-        bufferevent.enable :read
-        base.loop :nonblock
+        bufferevent.enable! :read
+        base.loop! :nonblock
       end
 
       it "returns the number of bytes read" do
@@ -494,7 +493,7 @@ describe FFI::Libevent::BufferEvent do
     let(:timeout){ 0.5 }
 
     before do
-      timer = FFI::Libevent::Event.new(base, "INT", :signal) { base.loopbreak }
+      timer = FFI::Libevent::Event.new(base, "INT", :signal) { base.loopbreak! }
       timer.add! FFI::Libevent::Timeval.seconds(timeout)
     end
 
@@ -503,9 +502,9 @@ describe FFI::Libevent::BufferEvent do
         called = false
         cb = proc{ called = true }
 
-        bufferevent.setcb eventcb: cb
+        bufferevent.set_callbacks event: cb
 
-        base.loop
+        base.loop!
         expect(base.got_break?).to be true
         expect(called).to be false
       end
@@ -529,7 +528,7 @@ describe FFI::Libevent::BufferEvent do
       context "when reading is not enabled" do
         before do
           bufferevent.set_timeouts(read_timeout)
-          bufferevent.disable :read
+          bufferevent.disable! :read
         end
 
         include_examples :does_nothing
@@ -537,7 +536,7 @@ describe FFI::Libevent::BufferEvent do
 
       context "when reading is enabled" do
         before do
-          bufferevent.enable :read
+          bufferevent.enable! :read
         end
 
         shared_examples :read_timeout do
@@ -545,9 +544,9 @@ describe FFI::Libevent::BufferEvent do
             start = Time.now
             time_called = nil
             cb = proc{ time_called = Time.now }
-            bufferevent.setcb eventcb: cb
+            bufferevent.set_callbacks event: cb
 
-            base.loop
+            base.loop!
             expect(base.got_break?).to be true
             expect(time_called).not_to be_nil
             expect(time_called - start).to be_within(0.005).of(read_timeout)
@@ -561,9 +560,9 @@ describe FFI::Libevent::BufferEvent do
               read = events & FFI::Libevent::BEV_EVENT_READING != 0
             end
 
-            bufferevent.setcb eventcb: cb
+            bufferevent.set_callbacks event: cb
 
-            base.loop
+            base.loop!
             expect(base.got_break?).to be true
             expect(equal).to be true
             expect(read).to be true
@@ -575,9 +574,9 @@ describe FFI::Libevent::BufferEvent do
               timeout = events & FFI::Libevent::BEV_EVENT_TIMEOUT != 0
             end
 
-            bufferevent.setcb eventcb: cb
+            bufferevent.set_callbacks event: cb
 
-            base.loop
+            base.loop!
             expect(base.got_break?).to be true
             expect(timeout).to be true
           end
@@ -610,7 +609,7 @@ describe FFI::Libevent::BufferEvent do
       context "when writing is not enabled" do
         before do
           bufferevent.set_timeouts(nil, write_timeout)
-          bufferevent.disable :write
+          bufferevent.disable! :write
         end
 
         include_examples :does_nothing
@@ -714,6 +713,28 @@ describe FFI::Libevent::BufferEvent do
 
         expect(time2 - time1).to be_within(0.001).of(0.5)
       end
+    end
+  end
+
+  describe '.pair' do
+    it "returns a pair of BufferEvent objects" do
+      pair = described_class.pair(base)
+      expect(pair.length).to eq 2
+      expect(pair).to all(be_a(described_class))
+    end
+
+    let(:pair){ described_class.pair(base) }
+
+    describe "the pair" do
+
+      it "contains objects that can talk to each other" do
+        pair[0].write "test"
+        pair[1].enable! :read
+        base.loop! :nonblock
+
+        expect(pair[1].read 4).to eq "test"
+      end
+      
     end
   end
 end

@@ -78,6 +78,8 @@ module FFI::Libevent
   attach_function :bufferevent_lock, [:pointer], :void, :blocking => true
   attach_function :bufferevent_unlock, [:pointer], :void
 
+  attach_function :bufferevent_pair_new, [:pointer, :int, :pointer], :int
+
   class BufferEvent < FFI::AutoPointer
     include FFI::Libevent
 
@@ -118,28 +120,28 @@ module FFI::Libevent
 
       res = bufferevent_socket_connect_hostname(self, dns_base, af, hostname, port)
       unless res == 0
-        error = dns_error || "Could not connect"
+        error = dns_error? || "Could not connect"
         raise error
       end 
     end
 
-    def dns_error
+    def dns_error?
       error_code = bufferevent_socket_get_dns_error(self)
       if error_code != 0
         Error::GAI.new error_code
       end
     end
 
-    def setcb(cbs)
+    def set_callbacks(cbs)
       cbs.each_pair do |k,cb|
         if cb.is_a? Proc
-          @cache[k] = if k == :eventcb
-                        proc{ |_, events| cb.call(self, events) }
-                      else
-                        proc{ cb.call(self) }
-                      end
+          @cache["#{k}cb".to_sym] = if k == :event
+                                      proc{ |_, events| cb.call(self, events) }
+                                    else
+                                      proc{ cb.call(self) }
+                                    end
         elsif cb.nil?
-          @cache.delete k
+          @cache.delete "#{k}cb".to_sym
         else
           raise "#{k} must be a proc or nil"
         end
@@ -148,23 +150,23 @@ module FFI::Libevent
       bufferevent_setcb self, @cache[:readcb], @cache[:writecb], @cache[:eventcb], nil
     end
 
-    def readcb
+    def read_cb
       @cache[:readcb]
     end
 
-    def writecb
+    def write_cb
       @cache[:writecb]
     end
 
-    def eventcb
+    def event_cb
       @cache[:eventcb]
     end
 
-    def enable events
+    def enable! events
       bufferevent_enable self, events
     end
 
-    def disable events
+    def disable! events
       bufferevent_disable self, events
     end
 
@@ -193,13 +195,23 @@ module FFI::Libevent
     def input
       ptr = bufferevent_get_input(self)
       raise "Could not get input" unless ptr
-      EvBuffer.new ptr
+      obj = EvBuffer.new ptr
+      if block_given?
+        yield obj
+      else
+        obj
+      end
     end
 
     def output
       ptr = bufferevent_get_output(self)
       raise "Could not get output" unless ptr
-      EvBuffer.new ptr
+      obj = EvBuffer.new ptr
+      if block_given?
+        yield obj
+      else
+        obj
+      end
     end
 
     def write what, len=nil
@@ -245,7 +257,7 @@ module FFI::Libevent
       bufferevent_set_timeouts(self, tv_read, tv_write)
     end
 
-    def flush iotype=(EV_READ|EV_WRITE), mode=:normal
+    def flush! iotype=(EV_READ|EV_WRITE), mode=:normal
       res = bufferevent_flush(iotype, mode)
       raise "Could not flush" unless res == 0
     end
@@ -269,20 +281,20 @@ module FFI::Libevent
       res
     end
 
-    def lock
+    def lock!
       bufferevent_lock(self)
     end
 
-    def unlock
+    def unlock!
       bufferevent_unlock(self)
     end
 
     def locked
       raise "requires a block" unless block_given?
-      lock
+      lock!
       yield
     ensure
-      unlock
+      unlock!
     end
 
     class << self
@@ -293,8 +305,14 @@ module FFI::Libevent
         self.new ptr, base, what
       end
 
-      def pair base, flags
-        raise "unimplemented"
+      def pair base, flags=0
+        ptr_pair = FFI::MemoryPointer.new(FFI::Type::POINTER, 2)
+        res = FFI::Libevent.bufferevent_pair_new base, flags, ptr_pair
+        raise "Could not create pair" unless res == 0
+
+        ptr_pair.read_array_of_pointer(2).map do |ptr|
+          self.new ptr, base, nil
+        end
       end
     end
 
