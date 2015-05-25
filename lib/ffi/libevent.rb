@@ -26,7 +26,7 @@ module FFI
       ffi_lib 'event_core'
     else
       ffi_lib_flags :now, :global
-      ffi_lib 'event_core', 'event_pthreads'
+      ffi_lib 'c', 'event_core', 'event_pthreads'
       attach_function :_use_pthreads, :evthread_use_pthreads, [], :int
     end
 

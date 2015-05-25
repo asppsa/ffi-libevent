@@ -35,10 +35,13 @@ module FFI::Libevent
   attach_function :evbuffer_prepend_buffer, [:pointer, :pointer], :int
 
   attach_function :evbuffer_pullup, [:pointer, :size_t], :pointer
-  attach_function :evbuffer_drain, [:pointer, :size_t], :pointer
+  attach_function :evbuffer_drain, [:pointer, :size_t], :int
 
   attach_function :evbuffer_copyout, [:pointer, :pointer, :size_t], :size_t
   #attach_function :evbuffer_copyout_from, [:pointer, :pointer, :pointer, :size_t], :size_t
+
+  # Used to free lines returned by readln
+  attach_function :evbuffer_ptr_free, :free, [:pointer], :void
 
   enum FFI::Type::INT,
        :evbuffer_eol_style, [:any,
@@ -50,7 +53,12 @@ module FFI::Libevent
 
   class EvBuffer < FFI::AutoPointer
     include FFI::Libevent
-    
+
+    ##
+    # The rationale here is that pointers are only passed into this by
+    # bufferevent objects when they are exposing their underlying
+    # evbuffers. In this case, garbage collection is connected to the
+    # bufferevent and is therefore not necessary here.
     def initialize ptr=nil
       if ptr
         release = proc{} # noop
@@ -63,24 +71,25 @@ module FFI::Libevent
       super ptr, release
     end
 
-    def enable_locking lock=nil
+    def enable_locking! lock=nil
       res = evbuffer_enable_locking self, lock
       raise "Could not enable locking" unless res == 0
     end
 
-    def lock
+    def lock!
       evbuffer_lock(self)
     end
 
-    def unlock
+    def unlock!
       evbuffer_unlock(self)
     end
 
-    def locked &block
-      lock
-      block.call
+    def locked
+      raise "no block given" unless block_given?
+      lock!
+      yield
     ensure
-      unlock
+      unlock!
     end
 
     def length
@@ -91,7 +100,7 @@ module FFI::Libevent
       evbuffer_get_contiguous_space self
     end
 
-    def add! bytes, len=nil
+    def add bytes, len=nil
       if bytes.is_a? EvBuffer
         res = evbuffer_add_buffer self, bytes
       else
@@ -103,27 +112,37 @@ module FFI::Libevent
       res
     end
 
-    def remove! dst, len
-      if dst.is_a? EvBuffer
+    def remove dst, len=nil
+      case dst
+      when EvBuffer
+        raise "length required" if len.nil?
         res = evbuffer_remove_buffer self, dst, len
-      else
+        raise "Could not remove" if res == -1
+        res
+      when Integer
+        ptr = FFI::MemoryPointer.new(dst)
+        l = remove ptr, dst
+        ptr.read_string(l)
+      when FFI::MemoryPointer
         res = evbuffer_remove self, dst, len
+        raise "Could not remove" if res == -1
+        res
+      else
+        raise "cannot remove to #{dst}"
       end
-
-      raise "Could not remove" if res == -1
-      res
     end
 
     def expand! len
-      res = evbuffer_expand self, bytes
+      res = evbuffer_expand self, len
       raise "Could not expand" unless res == 0
     end
 
-    def prepend! src, len=nil
-      if bytes.is_a? EvBuffer
+    def prepend src, len=nil
+      case src
+      when EvBuffer
         res = evbuffer_prepend_buffer self, src
-      else
-        len ||= bytes.bytesize
+      when String
+        len ||= src.bytesize
         res = evbuffer_prepend self, src, len
       end
 
@@ -132,19 +151,30 @@ module FFI::Libevent
     end
 
     def pullup! size=-1
-      evbuffer_pullup(self, size)
+      ptr = evbuffer_pullup(self, size)
+      raise "Too many bytes" if ptr.null?
+      ptr
     end
 
-    def drain! size
+    def drain size
       res = evbuffer_drain(self, size)
       raise "Could not drain" if res == -1
     end
 
-    def copyout data, len=nil
-      len ||= data.bytesize
-      size = evbuffer_copyout self, data, len
-      raise "Could not copy out" if size == -1
-      size
+    def copyout dst, len=nil
+      case dst
+      when Integer
+        ptr = FFI::MemoryPointer.new(dst)
+        l = copyout ptr, dst
+        ptr.read_string(l)
+      when FFI::MemoryPointer
+        raise "length is required" if len.nil?
+        res = evbuffer_copyout self, dst, len
+        raise "Could not copyout" if res == -1
+        res
+      else
+        raise "cannot copyout to #{dst}"
+      end
     end
 
     # def copyout_from pos, data, len=nil
@@ -154,17 +184,18 @@ module FFI::Libevent
     #   size
     # end
 
-    def readln eol_style=:lf
-      if ptr = evbuffer_readln(self, nil, eol_style)
+    def read_line eol_style=:crlf
+      ptr = evbuffer_readln(self, nil, eol_style)
+      unless ptr.null?
         ptr.read_string
       end
     ensure
-      ptr.free if ptr
+      evbuffer_ptr_free(ptr) if ptr && !ptr.null?
     end
 
-    def each_line eol_style=:lf, &block
+    def each_line eol_style=:crlf, &block
       enum = Enumerator.new do |y|
-        while str = readln
+        while str = read_line
           y << str
         end
       end
@@ -173,6 +204,14 @@ module FFI::Libevent
         enum.each(&block)
       else
         enum
+      end
+    end
+
+    class << self
+      def with_lock lock=nil
+        obj = self.new
+        obj.enable_locking! lock
+        obj
       end
     end
     
