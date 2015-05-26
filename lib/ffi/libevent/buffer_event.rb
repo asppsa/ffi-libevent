@@ -88,7 +88,7 @@ module FFI::Libevent
     def initialize ptr, base, what=nil
       @base = base
       @what = what
-      @cache = FFI::Libevent.new_cache
+      @callbacks = {}
 
       super ptr, FFI::Libevent.method(:bufferevent_free)
     end
@@ -133,33 +133,59 @@ module FFI::Libevent
     end
 
     def set_callbacks(cbs)
-      cbs.each_pair do |k,cb|
-        if cb.is_a? Proc
-          @cache["#{k}cb".to_sym] = if k == :event
-                                      proc{ |_, events| cb.call(self, events) }
-                                    else
-                                      proc{ cb.call(self) }
-                                    end
-        elsif cb.nil?
-          @cache.delete "#{k}cb".to_sym
-        else
-          raise "#{k} must be a proc or nil"
+      locked do
+        cbs.each_pair do |k,cb|
+          if cb.is_a? Proc
+            @callbacks[k] = if k == :event
+                              proc{ |_, events| cb.call(self, events) }
+                            else
+                              proc{ cb.call(self) }
+                            end
+          elsif cb.nil?
+            @cache.delete k
+          else
+            raise "#{k} callback must be a proc or nil"
+          end
         end
+
+        bufferevent_setcb self, @callbacks[:read], @callbacks[:write], @callbacks[:event], nil
       end
-
-      bufferevent_setcb self, @cache[:readcb], @cache[:writecb], @cache[:eventcb], nil
     end
 
-    def read_cb
-      @cache[:readcb]
+    def read_callback
+      locked{ @callbacks[:read] }
     end
 
-    def write_cb
-      @cache[:writecb]
+    def read_callback= cb
+      set_callbacks read: cb
     end
 
-    def event_cb
-      @cache[:eventcb]
+    def on_read(&block)
+      set_callbacks read: block
+    end
+
+    def write_callback
+      locked{ @callbacks[:write] }
+    end
+
+    def write_callback= cb
+      set_callbacks write: cb
+    end
+
+    def on_write(&block)
+      set_callbacks write: block
+    end
+
+    def event_callback
+      locked{ @callbacks[:event] }
+    end
+
+    def event_callback= cb
+      set_callbacks event: cb
+    end
+
+    def on_event(&block)
+      set_callbacks event: block
     end
 
     def enable! events

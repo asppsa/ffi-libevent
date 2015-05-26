@@ -56,16 +56,7 @@ module FFI
         raise "pthreads not available" unless _use_pthreads == 0
       end
 
-      require 'thread_safe'
       @use_threads = true
-    end
-
-    def self.new_cache
-      if @use_threads
-        ThreadSafe::Cache.new
-      else
-        Hash.new
-      end
     end
 
     ##
