@@ -71,7 +71,7 @@ module FFI::Libevent
         raise "Could not set priorities" unless res == 0
       end
 
-      super ptr, self.class.method(:release)
+      super ptr, FFI::Libevent.method(:base_free)
     end
 
     def base_method
@@ -135,9 +135,5 @@ module FFI::Libevent
     #     raise "Could not add event once"
     #   end
     # end
-
-    def self.release ptr
-      base_free ptr
-    end
   end
 end

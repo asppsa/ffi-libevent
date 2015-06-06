@@ -53,7 +53,7 @@ end
 class FFI::Libevent::Config < FFI::AutoPointer
   def initialize opts
     ptr = FFI::Libevent.config_new
-    super ptr, self.class.method(:release)
+    super ptr, FFI::Libevent.method(:config_free)
 
     if opts[:avoid_method]
       avoid_method(opts[:avoid_method])
@@ -87,9 +87,6 @@ class FFI::Libevent::Config < FFI::AutoPointer
   def avoid_method method
     FFI::Libevent.config_avoid_method self, method.to_s
   end
-  
-  def self.release ptr
-    FFI::Libevent.config_free ptr
-  end
+
 end
 

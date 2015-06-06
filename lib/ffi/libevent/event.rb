@@ -47,7 +47,7 @@ module FFI::Libevent
       ptr = event_new base, Event.fp_from_what(what), flags, block, nil
       raise "Could not create event" if ptr.null?
 
-      super ptr, self.class.method(:release)
+      super ptr, FFI::Libevent.method(:event_free)
     end
 
     def add! tv=nil
@@ -78,10 +78,6 @@ module FFI::Libevent
       else
         what
       end
-    end
-
-    def self.release ptr
-      event_free ptr
     end
   end
 end
