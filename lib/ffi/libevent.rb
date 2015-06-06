@@ -87,11 +87,6 @@ module FFI
         @logger
       end
     end
-
-    ##
-    # By default the logger is a noop.  The built-in logger seems to
-    # have trouble sometimes.
-    self.logger = proc{}
   end
 end
 
