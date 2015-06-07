@@ -71,16 +71,16 @@ describe FFI::Libevent::Base do
 
     describe "#loopexit!" do
       context "when no loop is running" do
-        it "returns 0" do
-          expect(subject.loopexit!).to eq 0
+        it "does nothing" do
+          expect{ subject.loopexit! }.not_to raise_error
         end
       end
     end
 
     describe "#loopbreak!" do
       context "when no loop is running" do
-        it "returns 0" do
-          expect(subject.loopbreak!).to eq 0
+        it "does nothing" do
+          expect{ subject.loopbreak! }.not_to raise_error
         end
       end
     end

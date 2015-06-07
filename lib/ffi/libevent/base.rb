@@ -87,11 +87,13 @@ module FFI::Libevent
     end
 
     def loopexit! tv=nil
-      base_loopexit(self, tv)
+      res = base_loopexit(self, tv)
+      raise "could not exit loop" if res == -1
     end
 
     def loopbreak!
-      base_loopbreak(self)
+      res = base_loopbreak(self)
+      raise "could not break loop" if res == -1
     end
 
     # def loopcontinue
