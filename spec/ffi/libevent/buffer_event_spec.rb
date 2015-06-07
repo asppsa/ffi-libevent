@@ -125,6 +125,13 @@ describe FFI::Libevent::BufferEvent do
     subject{ described_class.socket base, pair[0] }
 
     describe "setting a read callback" do
+      let :callback do
+        proc do |bev|
+          @called = true
+          @equal = bev == subject
+        end
+      end
+
       shared_examples :sets_read_callback do
         before do
           @called = false
@@ -141,14 +148,10 @@ describe FFI::Libevent::BufferEvent do
           expect(@equal).to be true
         end
       end
-      
+
       context 'using #set_callbacks' do
         before do
-          cb = proc do |bev|
-            @called = true
-            @equal = bev == subject
-          end
-          subject.set_callbacks read: cb
+          subject.set_callbacks read: callback
         end
 
         include_examples :sets_read_callback
@@ -156,11 +159,7 @@ describe FFI::Libevent::BufferEvent do
 
       context 'using #read_callback=' do
         before do
-          cb = proc do |bev|
-            @called = true
-            @equal = bev == subject
-          end
-          subject.read_callback = cb
+          subject.read_callback = callback
         end
 
         include_examples :sets_read_callback
@@ -168,17 +167,80 @@ describe FFI::Libevent::BufferEvent do
 
       context 'using #on_read' do
         before do
-          subject.on_read do |bev|
-            @called = true
-            @equal = bev == subject
-          end
+          subject.on_read(&callback)
         end
 
         include_examples :sets_read_callback
       end
     end
 
+    describe "unsetting a read callback" do
+      shared_examples :unsets_read_callback do
+        let :callback do
+          proc do |bev|
+            @called = true
+          end
+        end
+        
+        before do
+          @called = false
+          subject.read_callback = callback
+        end
+
+        it "disconnects the read callback" do
+          subject.enable! :read
+          unset_callback.call
+
+          pair[1] << 'testing 1 2 3 4'
+          base.loop! :nonblock
+
+          expect(@called).to be false
+        end
+      end
+
+      context "using #unset_callbacks" do
+        context "with :read parameter" do
+          let(:unset_callback) do
+            proc{ subject.unset_callbacks :read }
+          end
+
+          include_examples :unsets_read_callback
+        end
+
+        context "with no parameter" do
+          let(:unset_callback) do
+            proc{ subject.unset_callbacks }
+          end
+
+          include_examples :unsets_read_callback
+        end
+      end
+
+      context "using #set_callbacks" do
+        let(:unset_callback) do
+          proc{ subject.set_callbacks read: nil }
+        end
+
+        include_examples :unsets_read_callback
+      end
+
+      context "using #read_callback=" do
+        let(:unset_callback) do
+          proc{ subject.read_callback = nil }
+        end
+
+        include_examples :unsets_read_callback
+      end
+    end
+
     describe "setting a write callback" do
+      let(:callback) do
+        proc do |bev|
+          @called = true
+          @equal = bev == subject
+        end
+      end
+      
       shared_examples :sets_write_callback do
         before do
           @called = false
@@ -196,11 +258,7 @@ describe FFI::Libevent::BufferEvent do
 
       context "using #set_callbacks" do
         before do
-          cb = proc do |bev|
-            @called = true
-            @equal = bev == subject
-          end
-          subject.set_callbacks write: cb
+          subject.set_callbacks write: callback
         end
 
         include_examples :sets_write_callback
@@ -208,11 +266,7 @@ describe FFI::Libevent::BufferEvent do
 
       context "using #write_callback=" do
         before do
-          cb = proc do |bev|
-            @called = true
-            @equal = bev == subject
-          end
-          subject.write_callback = cb
+          subject.write_callback = callback
         end
 
         include_examples :sets_write_callback
@@ -220,19 +274,76 @@ describe FFI::Libevent::BufferEvent do
 
       context "using #on_write" do
         before do
-          subject.on_write do |bev|
-            @called = true
-            @equal = bev == subject
-          end
+          subject.on_write(&callback)
         end
 
         include_examples :sets_write_callback
       end
     end
+
+    describe "unsetting a write callback" do
+      shared_examples :unsets_write_callback do
+        let :callback do
+          proc do |bev|
+            @called = true
+          end
+        end
+        
+        before do
+          @called = false
+          subject.write_callback = callback
+        end
+
+        it "disconnects the write callback" do
+          unset_callback.call
+          expect(subject.write "test").to eq 0
+          base.loop! :nonblock
+          expect(@called).to be false
+        end
+      end
+
+      context "using #unset_callbacks" do
+        context "with :write parameter" do
+          let(:unset_callback) do
+            proc{ subject.unset_callbacks :write }
+          end
+
+          include_examples :unsets_write_callback
+        end
+
+        context "with no parameter" do
+          let(:unset_callback) do
+            proc{ subject.unset_callbacks }
+          end
+
+          include_examples :unsets_write_callback
+        end
+      end
+
+      context "using #set_callbacks" do
+        let(:unset_callback) do
+          proc{ subject.set_callbacks write: nil }
+        end
+
+        include_examples :unsets_write_callback
+      end
+
+      context "using #write_callback=" do
+        let(:unset_callback) do
+          proc{ subject.write_callback = nil }
+        end
+
+        include_examples :unsets_write_callback
+      end
+    end
+
+    pending "setting an event callback"
+
+    pending "unsetting an event callback"
   end
 
   describe '#enable! and #disable!' do
-    let(:bufferevent) { described_class.socket base, pair[0] }
+    let(:bufferevent){ described_class.socket base, pair[0] }
 
     context "reading" do
       it "is not enabled by default" do
@@ -292,7 +403,7 @@ describe FFI::Libevent::BufferEvent do
         cb = proc{ called = true }
 
         expect(bufferevent.enabled? :write).to be true
-        expect(bufferevent.enabled?(FFI::Libevent::EV_READ | FFI::Libevent::EV_WRITE)).to be false
+        expect(bufferevent.enabled?).to be false
         bufferevent.set_callbacks write: cb
         expect(bufferevent.write "test").to eq 0
         base.loop! :nonblock

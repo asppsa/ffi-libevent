@@ -134,6 +134,11 @@ module FFI::Libevent
 
     def set_callbacks(cbs)
       locked do
+        # We need to keep track of the callbacks till the end of this
+        # method call so that they don't get prematurely garbage
+        # collected
+        deleted = []
+
         cbs.each_pair do |k,cb|
           if cb.is_a? Proc
             @callbacks[k] = if k == :event
@@ -142,7 +147,7 @@ module FFI::Libevent
                               proc{ cb.call(self) }
                             end
           elsif cb.nil?
-            @cache.delete k
+            deleted.push @callbacks.delete(k)
           else
             raise "#{k} callback must be a proc or nil"
           end
@@ -150,6 +155,11 @@ module FFI::Libevent
 
         bufferevent_setcb self, @callbacks[:read], @callbacks[:write], @callbacks[:event], nil
       end
+    end
+
+    def unset_callbacks *keys
+      keys = [:read,:write,:event] if keys.empty?
+      set_callbacks keys.map{ |k| [k,nil] }.to_h
     end
 
     def read_callback
@@ -188,11 +198,11 @@ module FFI::Libevent
       set_callbacks event: block
     end
 
-    def enable! events
+    def enable! events=(FFI::Libevent::EV_READ | FFI::Libevent::EV_WRITE)
       bufferevent_enable self, events
     end
 
-    def disable! events
+    def disable! events=(FFI::Libevent::EV_READ | FFI::Libevent::EV_WRITE)
       bufferevent_disable self, events
     end
 
@@ -200,7 +210,7 @@ module FFI::Libevent
       bufferevent_get_enabled self
     end
 
-    def enabled? what
+    def enabled? what=(FFI::Libevent::EV_READ | FFI::Libevent::EV_WRITE)
       en = enabled
       case what
       when :read
