@@ -69,16 +69,19 @@ describe FFI::Libevent::BufferEvent do
       include_examples :connects
     end
 
-    context "with a sockaddr string" do
-      let(:addr) { Addrinfo.new(Socket.sockaddr_in(80, '127.0.0.1')).to_sockaddr }
-      include_examples :connects
-    end
+    # These tests don't work in RBX because there's no Addrinfo class
+    unless RUBY_ENGINE == 'rbx'
+      context "with a sockaddr string" do
+        let(:addr) { Addrinfo.new(Socket.sockaddr_in(80, '127.0.0.1')).to_sockaddr }
+        include_examples :connects
+      end
 
-    context "with an Addrinfo object" do
-      let(:addr) { Addrinfo.new(Socket.sockaddr_in(80, '127.0.0.1')) }
-      before{ pair[0].close }
+      context "with an Addrinfo object" do
+        let(:addr) { Addrinfo.new(Socket.sockaddr_in(80, '127.0.0.1')) }
+        before{ pair[0].close }
 
-      include_examples :connects
+        include_examples :connects
+      end
     end
   end
 
@@ -894,7 +897,7 @@ describe FFI::Libevent::BufferEvent do
         t1.join
         t2.join
 
-        expect(time2 - time1).to be_within(0.001).of(0.5)
+        expect(time2 - time1).to be_within(0.005).of(0.5)
       end
     end
   end

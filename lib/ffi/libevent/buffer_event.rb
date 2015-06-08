@@ -159,7 +159,7 @@ module FFI::Libevent
 
     def unset_callbacks *keys
       keys = [:read,:write,:event] if keys.empty?
-      set_callbacks keys.map{ |k| [k,nil] }.to_h
+      set_callbacks Hash[keys.map{ |k| [k,nil] }]
     end
 
     def read_callback
