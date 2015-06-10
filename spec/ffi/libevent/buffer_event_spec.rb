@@ -3,11 +3,6 @@ describe FFI::Libevent::BufferEvent do
   let(:pair) { UNIXSocket.pair }
 
   describe '.socket' do
-    it "is freed by calling bufferevent_free" do
-      obj = described_class.socket(base, pair[0])
-      obj.free
-    end
-
     shared_examples :returns do
       it "returns an object of the correct class" do
         expect(obj).to be_a described_class

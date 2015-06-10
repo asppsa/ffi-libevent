@@ -35,6 +35,8 @@ module FFI
     callback :event_log_cb, [:int, :string], :void
     attach_function :_set_log_callback, :event_set_log_callback, [:event_log_cb], :void
 
+    attach_function :enable_lock_debugging, :evthread_enable_lock_debuging, [], :void
+
     def self.supported_methods
       ptr = _supported_methods
       methods = []

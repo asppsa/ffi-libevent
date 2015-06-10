@@ -40,14 +40,12 @@ module FFI::Libevent
     include FFI::Libevent
 
     def initialize base, what, flags, &block
-      # Prevent these from being GC'ed
-      @what = what
-      @block = block
-
       ptr = event_new base, Event.fp_from_what(what), flags, block, nil
       raise "Could not create event" if ptr.null?
 
-      super ptr, FFI::Libevent.method(:event_free)
+      # The releaser object stops `what` and `block` from being
+      # prematurely GCed
+      super ptr, Releaser.new(base, what, block).method(:release)
     end
 
     def add! tv=nil
@@ -77,6 +75,22 @@ module FFI::Libevent
         -1
       else
         what
+      end
+    end
+
+    ##
+    # This object holds a reference to the event's block, so that it
+    # doesn't get GCed until after we have called event_free.
+    class Releaser
+      def initialize base, what, block
+        @base = base
+        @what = what
+        @block = block
+      end
+        
+      def release ptr
+        FFI::Libevent.event_free ptr
+        @base = @what = @block = nil
       end
     end
   end

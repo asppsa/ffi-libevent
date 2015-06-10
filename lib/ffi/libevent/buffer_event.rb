@@ -86,11 +86,9 @@ module FFI::Libevent
     attr_reader :base
 
     def initialize ptr, base, what=nil
-      @base = base
-      @what = what
       @callbacks = {}
-
-      super ptr, FFI::Libevent.method(:bufferevent_free)
+      @rel = Releaser.new(base,what,@callbacks)
+      super ptr, @rel.method(:release)
     end
 
     def connect what
@@ -104,7 +102,7 @@ module FFI::Libevent
 
       res = bufferevent_socket_connect(self, sockaddr, sockaddr.bytesize)
       raise "Could not connect" unless res == 0
-      @what = what
+      @rel.what = what
       nil
     end
 
@@ -140,15 +138,14 @@ module FFI::Libevent
         deleted = []
 
         cbs.each_pair do |k,cb|
+          deleted.push @callbacks.delete(k)
           if cb.is_a? Proc
             @callbacks[k] = if k == :event
-                              proc{ |_, events| cb.call(self, events) }
+                              EventCallback.new(self, cb)
                             else
-                              proc{ cb.call(self) }
+                              Callback.new(self, cb)
                             end
-          elsif cb.nil?
-            deleted.push @callbacks.delete(k)
-          else
+          elsif not cb.nil?
             raise "#{k} callback must be a proc or nil"
           end
         end
@@ -309,6 +306,7 @@ module FFI::Libevent
     def fd= what
       res = bufferevent_setfd self, Event.fp_from_what(what)
       raise "Could not set fd" unless res == 0
+      @rel.what = what
     end
 
     def fd
@@ -352,5 +350,41 @@ module FFI::Libevent
       end
     end
 
+    class Releaser
+      attr_accessor :base, :what, :callbacks
+
+      def initialize base, what, callbacks
+        @base = base
+        @what = what
+        @callbacks = callbacks
+      end
+
+      def release ptr
+        FFI::Libevent.bufferevent_free ptr
+        @base = @what = @callbacks = nil
+      end
+    end
+
+    class EventCallback
+      def initialize base, cb
+        @base = base
+        @cb = cb
+      end
+
+      def call _,events,_
+        @cb.call(@base,events)
+      end
+    end
+
+    class Callback
+      def initialize base, cb
+        @base = base
+        @cb = cb
+      end
+
+      def call _,_
+        @cb.call(@base)
+      end
+    end
   end
 end

@@ -61,7 +61,7 @@ module FFI::Libevent
     # bufferevent and is therefore not necessary here.
     def initialize ptr=nil
       if ptr
-        release = proc{} # noop
+        release = self.class.method(:noop)
       else
         ptr = FFI::Libevent.evbuffer_new
         raise "Could not create evbuffer" unless ptr
@@ -213,8 +213,9 @@ module FFI::Libevent
         obj.enable_locking! lock
         obj
       end
+
+      def noop; end
     end
-    
   end
 
   # class EvBuffer::Ptr < FFI::Pointer
