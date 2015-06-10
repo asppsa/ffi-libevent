@@ -7,9 +7,9 @@ require 'socket'
 FFI::Libevent.use_threads!
 
 base = FFI::Libevent::Base.new :avoid_method => :kqueue
-trapper = base.add_event("INT", FFI::Libevent::EV_SIGNAL) { base.loopbreak }
+trapper = base.add_event("INT", FFI::Libevent::EV_SIGNAL) { base.loopbreak! }
 
-t = Thread.new{ base.loop }
+t = Thread.new{ base.loop! }
 
 pinger, ponger = UNIXSocket.pair
 

@@ -5,7 +5,7 @@ require 'ffi/libevent'
 require 'socket'
 
 base = FFI::Libevent::Base.new
-trapper = FFI::Libevent::Event.new(base, "INT", FFI::Libevent::EV_SIGNAL) { base.loopbreak }
+trapper = FFI::Libevent::Event.new(base, "INT", FFI::Libevent::EV_SIGNAL) { base.loopbreak! }
 trapper.add!
 
 pinger, ponger = UNIXSocket.pair
@@ -37,4 +37,4 @@ end
 
 wait_to_ping.add!
 wait_for_ping.add!
-base.loop
+base.loop!
