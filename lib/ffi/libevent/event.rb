@@ -45,7 +45,7 @@ module FFI::Libevent
 
       # The releaser object stops `what` and `block` from being
       # prematurely GCed
-      super ptr, Releaser.new(base, what, block).method(:release)
+      super ptr, Releaser.new(base, what, block)
     end
 
     def add! tv=nil
@@ -88,7 +88,7 @@ module FFI::Libevent
         @block = block
       end
         
-      def release ptr
+      def call ptr
         FFI::Libevent.event_free ptr
         @base = @what = @block = nil
       end

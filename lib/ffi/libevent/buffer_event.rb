@@ -88,7 +88,7 @@ module FFI::Libevent
     def initialize ptr, base, what=nil
       @callbacks = {}
       @rel = Releaser.new(base,what,@callbacks)
-      super ptr, @rel.method(:release)
+      super ptr, @rel
     end
 
     def connect what
@@ -359,7 +359,10 @@ module FFI::Libevent
         @callbacks = callbacks
       end
 
-      def release ptr
+      def call ptr
+        puts "releasing ..."
+        puts "base: #{@base}"
+        puts "what: #{@what}"
         FFI::Libevent.bufferevent_free ptr
         @base = @what = @callbacks = nil
       end

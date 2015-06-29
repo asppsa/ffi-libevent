@@ -50,7 +50,7 @@ describe FFI::Libevent::BufferEvent do
 
   end
 
-  describe '#connect' do
+  skip '#connect' do
     let(:bufferevent) { described_class.socket base }
 
     shared_examples :connects do
@@ -80,7 +80,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  describe "#connect_hostname" do
+  skip "#connect_hostname" do
     let(:bufferevent) { described_class.socket base }
 
     shared_examples :connects do
@@ -105,7 +105,7 @@ describe FFI::Libevent::BufferEvent do
 
   end
 
-  describe '#dns_error?' do
+  skip '#dns_error?' do
     let(:bufferevent) { described_class.socket base }
 
     before do
@@ -119,7 +119,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  describe "setting callbacks" do
+  skip "setting callbacks" do
     subject{ described_class.socket base, pair[0] }
 
     describe "setting a read callback" do
@@ -340,7 +340,7 @@ describe FFI::Libevent::BufferEvent do
     pending "unsetting an event callback"
   end
 
-  describe '#enable! and #disable!' do
+  skip '#enable! and #disable!' do
     let(:bufferevent){ described_class.socket base, pair[0] }
 
     context "reading" do
@@ -439,7 +439,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  describe "#set_watermark" do
+  skip "#set_watermark" do
     let(:bufferevent) { described_class.socket base, pair[0] }
 
     describe "writing" do
@@ -594,7 +594,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  describe '#read' do
+  skip '#read' do
     let(:bufferevent){ described_class.socket base, pair[0] }
 
     context "with an EvBuffer" do

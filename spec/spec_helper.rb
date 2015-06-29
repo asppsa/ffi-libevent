@@ -77,14 +77,15 @@ RSpec.configure do |config|
 =end
 end
 
-require 'bundler/setup'
+#require 'bundler/setup'
 require 'ffi/libevent'
 require 'logger'
 
 # Thread-safety
-FFI::Libevent.use_threads!
+#FFI::Libevent.enable_lock_debugging
+FFI::Libevent.use_ruby_locking!
 
 # Ignore warnings
 logger = Logger.new(STDERR)
-logger.level = Logger::ERROR
+logger.level = Logger::WARN
 FFI::Libevent.logger = logger

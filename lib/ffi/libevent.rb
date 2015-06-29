@@ -25,8 +25,17 @@ module FFI
     if RUBY_PLATFORM =~ /windows/
       ffi_lib 'event_core'
     else
+      core, pthreads = if ENV['LIBEVENT']
+                         ['/libevent_core*.so.*', '/libevent_pthreads*.so.*'].map do |splat|
+                           Dir[ENV['LIBEVENT'] + splat].first
+                         end
+                       else
+                         %w{event_core event_pthreads}
+                       end
+      puts core
+      puts pthreads
       ffi_lib_flags :now, :global
-      ffi_lib 'c', 'event_core', 'event_pthreads'
+      ffi_lib 'c', core, pthreads
       attach_function :_use_pthreads, :evthread_use_pthreads, [], :int
     end
 
@@ -36,6 +45,10 @@ module FFI
     attach_function :_set_log_callback, :event_set_log_callback, [:event_log_cb], :void
 
     attach_function :enable_lock_debugging, :evthread_enable_lock_debuging, [], :void
+
+    attach_function :_set_lock_callbacks, :evthread_set_lock_callbacks, [:pointer], :int
+    callback :id_fn, [], :int
+    attach_function :_set_id_callback, :evthread_set_id_callback, [:id_fn], :void
 
     def self.supported_methods
       ptr = _supported_methods
@@ -51,12 +64,36 @@ module FFI
 
     @use_threads = false
     def self.use_threads!
+      return if @use_threads
+
       if RUBY_PLATFORM =~ /windows/
         raise "not implemented"
       else
         raise "not linked to pthreads" unless self.respond_to? :_use_pthreads
         raise "pthreads not available" unless _use_pthreads == 0
       end
+
+      @use_threads = true
+    end
+
+    def self.use_ruby_locking!
+      return if @use_threads
+
+      # This object contains methods for creating and deleting lock
+      # objects
+      @lock_manager = LockManager.new
+
+      # This object is passed to libevent
+      @lock_callbacks = LockCallbacks.new
+      @lock_callbacks[:lock_api_version] = 1
+      @lock_callbacks[:supported_locktypes] = LOCKTYPE_RECURSIVE
+      @lock_callbacks[:alloc] = @lock_manager.method(:alloc)
+      @lock_callbacks[:free] = @lock_manager.method(:free)
+      @lock_callbacks[:lock] = @lock_manager.method(:lock)
+      @lock_callbacks[:unlock] = @lock_manager.method(:unlock)
+
+      _set_lock_callbacks(@lock_callbacks)
+      _set_id_callback(proc{ Thread.current.object_id })
 
       @use_threads = true
     end
@@ -99,3 +136,5 @@ require_relative 'libevent/base'
 require_relative 'libevent/event'
 require_relative 'libevent/ev_buffer'
 require_relative 'libevent/buffer_event'
+require_relative 'libevent/lock_callbacks'
+require_relative 'libevent/lock_manager'
