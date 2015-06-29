@@ -88,7 +88,7 @@ module FFI::Libevent
         @what = what
         @block = block
       end
-
+        
       def call ptr
         FFI::Libevent.event_free ptr
         @base = @what = @block = nil
