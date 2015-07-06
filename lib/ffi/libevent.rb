@@ -92,6 +92,7 @@ module FFI
   end
 end
 
+require_relative 'libevent/util'
 require_relative 'libevent/error'
 require_relative 'libevent/timeval'
 require_relative 'libevent/config'
