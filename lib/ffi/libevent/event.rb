@@ -40,12 +40,13 @@ module FFI::Libevent
     include FFI::Libevent
 
     def initialize base, what, flags, &block
-      ptr = event_new base, Event.fp_from_what(what), flags, block, nil
+      @callback = Callback.new(base, what, block)
+      ptr = event_new base, Event.fp_from_what(what), flags, @callback, nil
       raise "Could not create event" if ptr.null?
 
       # The releaser object stops `what` and `block` from being
       # prematurely GCed
-      super ptr, Releaser.new(base, what, block).method(:release)
+      super ptr, Releaser.new(base, what, block)
     end
 
     def add! tv=nil
@@ -87,10 +88,25 @@ module FFI::Libevent
         @what = what
         @block = block
       end
-        
-      def release ptr
+
+      def call ptr
         FFI::Libevent.event_free ptr
         @base = @what = @block = nil
+      end
+    end
+
+    ##
+    # This object wraps the callback provided so that it receives the
+    # base object as its first parameter, instead of a plain pointer.
+    class Callback
+      def initialize base, what, block
+        @base = base
+        @what = what
+        @block = block
+      end
+
+      def call fd, events, _
+        @block.call @what, events, @base
       end
     end
   end
