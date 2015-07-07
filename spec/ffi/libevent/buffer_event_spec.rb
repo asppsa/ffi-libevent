@@ -918,4 +918,21 @@ describe FFI::Libevent::BufferEvent do
       
     end
   end
+
+  describe "deleting" do
+    it "removes the bufferevent from the object space" do
+      # Create object
+      bev = described_class.socket(base, pair[0])
+      id = bev.object_id
+
+      # Delete object; garbage collect
+      bev = nil
+      ObjectSpace.garbage_collect
+
+      # Check that the object is gone
+      ObjectSpace.each_object(described_class) do |b|
+        expect(b.object_id).not_to eq id
+      end
+    end
+  end
 end

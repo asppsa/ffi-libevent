@@ -102,4 +102,21 @@ describe FFI::Libevent::Event do
       expect(base.got_break?).to be true
     end
   end
+
+  describe "deleting" do
+    it "removes the event from the objectspace" do
+      # Create event
+      e = described_class.new(base, -1, 0){}
+      id = e.object_id
+
+      # Delete event and GC
+      e = nil
+      ObjectSpace.garbage_collect
+
+      # Check that event has been deleted
+      ObjectSpace.each_object(described_class) do |ev|
+        expect(ev.object_id).not_to eq id
+      end
+    end
+  end
 end

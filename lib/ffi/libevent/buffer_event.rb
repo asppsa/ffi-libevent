@@ -87,7 +87,7 @@ module FFI::Libevent
 
     def initialize ptr, base, what=nil
       @callbacks = {}
-      @rel = Releaser.new(base,what,@callbacks)
+      @rel = Releaser.new(base, what, @callbacks)
       super ptr, @rel
     end
 
@@ -102,8 +102,7 @@ module FFI::Libevent
 
       res = bufferevent_socket_connect(self, sockaddr, sockaddr.bytesize)
       raise "Could not connect" unless res == 0
-      @rel.what = what
-      nil
+      @rel.what = nil
     end
 
     def connect_hostname family, hostname, port, dns_base=nil
@@ -120,7 +119,8 @@ module FFI::Libevent
       unless res == 0
         error = dns_error? || "Could not connect"
         raise error
-      end 
+      end
+      @rel.what = nil
     end
 
     def dns_error?
@@ -366,24 +366,24 @@ module FFI::Libevent
     end
 
     class EventCallback
-      def initialize base, cb
-        @base = base
+      def initialize bev, cb
+        @bev = bev
         @cb = cb
       end
 
       def call _,events,_
-        @cb.call(@base,events)
+        @cb.call(@bev,events)
       end
     end
 
     class Callback
-      def initialize base, cb
-        @base = base
+      def initialize bev, cb
+        @bev = bev
         @cb = cb
       end
 
       def call _,_
-        @cb.call(@base)
+        @cb.call(@bev)
       end
     end
   end

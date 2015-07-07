@@ -101,5 +101,22 @@ describe FFI::Libevent::Base do
       end
     end
   end
+
+  context "deleting" do
+    it "removes the object from the object space" do
+      # Create a base objecrt
+      base = described_class.new
+      id = base.object_id
+
+      # Delete the object and run garbage collector
+      base = nil
+      ObjectSpace.garbage_collect
+
+      # Check that the object is no longer in the object space
+      ObjectSpace.each_object(described_class) do |base|
+        expect(base.object_id).not_to eq id
+      end
+    end
+  end
 end
 
