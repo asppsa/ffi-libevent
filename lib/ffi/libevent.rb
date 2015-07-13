@@ -15,13 +15,16 @@
 require 'ffi'
 require "ffi/libevent/version"
 
+require 'logger'
+
 module FFI
   module Libevent
     extend FFI::Library
 
-    # This links to the correct set of libs for this platform
-
-    # This function is available on non-windows platforms
+    ##
+    # This links to the correct set of libs for this platform.  On
+    # Windows, we will only ever use the core set of functions at the
+    # moment.
     if RUBY_PLATFORM =~ /windows/
       ffi_lib 'event_core'
     else
@@ -32,8 +35,7 @@ module FFI
                        else
                          %w{event_core event_pthreads}
                        end
-      puts core
-      puts pthreads
+
       ffi_lib_flags :now, :global
       ffi_lib 'c', core, pthreads
       attach_function :_use_pthreads, :evthread_use_pthreads, [], :int
@@ -47,6 +49,7 @@ module FFI
     attach_function :enable_lock_debugging, :evthread_enable_lock_debuging, [], :void
 
     attach_function :_set_lock_callbacks, :evthread_set_lock_callbacks, [:pointer], :int
+    attach_function :_set_condition_callbacks, :evthread_set_condition_callbacks, [:pointer], :int
     callback :id_fn, [], :int
     attach_function :_set_id_callback, :evthread_set_id_callback, [:id_fn], :void
 
@@ -63,14 +66,22 @@ module FFI
     end
 
     @use_threads = false
+
+    ##
+    # Use ruby thread methods in any of the following cases:
+    #
+    # - We are on Windows (no pthreads there)
+    # - We are using Rubinius (segfaults otherwise)
+    # - We have not linked to the event_pthreads lib
+    # - Using pthreads fails for some reason
     def self.use_threads!
       return if @use_threads
 
-      if RUBY_PLATFORM =~ /windows/
-        raise "not implemented"
-      else
-        raise "not linked to pthreads" unless self.respond_to? :_use_pthreads
-        raise "pthreads not available" unless _use_pthreads == 0
+      if RUBY_PLATFORM =~ /windows/ ||
+         RUBY_ENGINE == 'rbx' ||
+         !self.respond_to?(:_use_pthreads) ||
+         _use_pthreads != 0
+        return self.use_ruby_locking!
       end
 
       @use_threads = true
@@ -83,17 +94,16 @@ module FFI
       # objects
       @lock_manager = LockManager.new
 
-      # This object is passed to libevent
-      @lock_callbacks = LockCallbacks.new
-      @lock_callbacks[:lock_api_version] = 1
-      @lock_callbacks[:supported_locktypes] = LOCKTYPE_RECURSIVE
-      @lock_callbacks[:alloc] = @lock_manager.method(:alloc)
-      @lock_callbacks[:free] = @lock_manager.method(:free)
-      @lock_callbacks[:lock] = @lock_manager.method(:lock)
-      @lock_callbacks[:unlock] = @lock_manager.method(:unlock)
+      # These objects are passed to libevent.  Recorded here to
+      # prevent garbage collection
+      @lock_callbacks = @lock_manager.lock_callbacks
+      @condition_callbacks = @lock_manager.condition_callbacks
+      @id_callback = proc{ Thread.current.object_id }
 
+      # Tell libevent to use our locking callbacks
       _set_lock_callbacks(@lock_callbacks)
-      _set_id_callback(proc{ Thread.current.object_id })
+      _set_condition_callbacks(@condition_callbacks)
+      _set_id_callback(@id_callback)
 
       @use_threads = true
     end
@@ -103,28 +113,27 @@ module FFI
     # which implements the logger#add interface; or pass an object
     # that has an '#add' method (e.g. a stdlib logger)
     def self.logger= logger
-      l = if logger.nil? || logger.is_a?(Proc)
-            logger
-          elsif logger.respond_to? :add
-            logger.method(:add)
-          end
+      raise "logger does not respond to :add" unless logger.respond_to? :add
 
-      _set_log_callback l
-
-      # Record both to prevent the proc being GCed
-      @logger_proc = l
+      # Record both to prevent them being GCed
+      @logger_proc = logger.method(:add)
       @logger = logger
+
+      _set_log_callback @logger_proc
+      @logger
     end
 
     ##
-    # If a block is given, this method is used to assign a new logger
-    # proc.  Otherwise, it returns the current logger (proc or object)
-    def self.logger &block
-      if block
-        self.logger= block
-      else
-        @logger
-      end
+    # Returns the current logger object
+    def self.logger
+      @logger
+    end
+
+    ##
+    # This is the default logger.  Logs errors or worse only.
+    Logger.new(STDERR).tap do |logger|
+      logger.level = Logger::ERROR
+      self.logger = logger
     end
   end
 end
@@ -137,5 +146,6 @@ require_relative 'libevent/base'
 require_relative 'libevent/event'
 require_relative 'libevent/ev_buffer'
 require_relative 'libevent/buffer_event'
+require_relative 'libevent/condition_callbacks'
 require_relative 'libevent/lock_callbacks'
 require_relative 'libevent/lock_manager'

@@ -82,10 +82,4 @@ require 'ffi/libevent'
 require 'logger'
 
 # Thread-safety
-#FFI::Libevent.enable_lock_debugging
-FFI::Libevent.use_ruby_locking!
-
-# Ignore warnings
-logger = Logger.new(STDERR)
-logger.level = Logger::WARN
-FFI::Libevent.logger = logger
+FFI::Libevent.use_threads!

@@ -25,7 +25,7 @@ describe FFI::Libevent::Base do
     context "with incompatible :require_features options" do
       it "raises an error" do
         expect{ described_class.new(:require_features => FFI::Libevent::FEATURE_O1 | FFI::Libevent::FEATURE_FDS) }.
-          to raise_error
+          to raise_error RuntimeError
       end
     end
 
@@ -40,7 +40,7 @@ describe FFI::Libevent::Base do
 
   context "with an initialized object" do
 
-    subject { described_class.new }
+    subject!{ described_class.new }
 
     describe "#base_method" do
       it "returns a symbol" do

@@ -50,7 +50,7 @@ describe FFI::Libevent::BufferEvent do
 
   end
 
-  skip '#connect' do
+  describe '#connect' do
     let(:bufferevent) { described_class.socket base }
 
     shared_examples :connects do
@@ -80,7 +80,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  skip "#connect_hostname" do
+  describe "#connect_hostname" do
     let(:bufferevent) { described_class.socket base }
 
     shared_examples :connects do
@@ -105,7 +105,7 @@ describe FFI::Libevent::BufferEvent do
 
   end
 
-  skip '#dns_error?' do
+  describe '#dns_error?' do
     let(:bufferevent) { described_class.socket base }
 
     before do
@@ -119,7 +119,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  skip "setting callbacks" do
+  describe "setting callbacks" do
     subject{ described_class.socket base, pair[0] }
 
     describe "setting a read callback" do
@@ -340,7 +340,7 @@ describe FFI::Libevent::BufferEvent do
     pending "unsetting an event callback"
   end
 
-  skip '#enable! and #disable!' do
+  describe '#enable! and #disable!' do
     let(:bufferevent){ described_class.socket base, pair[0] }
 
     context "reading" do
@@ -439,7 +439,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  skip "#set_watermark" do
+  describe "#set_watermark" do
     let(:bufferevent) { described_class.socket base, pair[0] }
 
     describe "writing" do
@@ -594,7 +594,7 @@ describe FFI::Libevent::BufferEvent do
     end
   end
 
-  skip '#read' do
+  describe '#read' do
     let(:bufferevent){ described_class.socket base, pair[0] }
 
     context "with an EvBuffer" do
@@ -802,7 +802,7 @@ describe FFI::Libevent::BufferEvent do
     let(:bufferevent){ described_class.socket base, pair[0] }
 
     it "works for any positive integer" do
-      expect{ bufferevent.priority = -1 }.to raise_error
+      expect{ bufferevent.priority = -1 }.to raise_error RuntimeError
       expect{ bufferevent.priority = 0 }.not_to raise_error
       expect{ bufferevent.priority = 9 }.not_to raise_error
     end
@@ -829,7 +829,7 @@ describe FFI::Libevent::BufferEvent do
     context "with nil" do
       it "sets the fileno to -1" do
         bufferevent.fd = nil
-        expect{ bufferevent.fd }.to raise_error
+        expect{ bufferevent.fd }.to raise_error RuntimeError
       end
     end
   end

@@ -16,32 +16,44 @@ class FFI::Libevent::Timeval < FFI::Struct
   layout :tv_sec, :ulong,
          :tv_usec, :ulong
 
-  def initialize sec, usec
-    super()
-    self[:tv_sec] = sec.truncate
-    self[:tv_usec] = usec.truncate
-  end
-
   def seconds
-    self[:tv_sec]
+    self[:tv_sec] + self[:tv_usec] / 1_000_000.0
   end
   alias :s :seconds
 
   def microseconds
-    self[:tv_usec]
+    self[:tv_usec] + self[:tv_sec] * 1_000_000
   end
   alias :useconds :microseconds
   alias :us :microseconds
 
+  def milliseconds
+    microseconds * 1_000
+  end
+
+  def minutes
+    seconds / 60.0
+  end
+
+  def hours
+    minutes / 60.0
+  end
+
   class << self
     def seconds s
       a,b = s.divmod(1)
-      self.new(a, b*1_000_000)
+      self.new.tap do |tv|
+        tv[:tv_sec] = a
+        tv[:tv_usec] = b*1_000_000
+      end
     end
     alias :s :seconds
 
     def microseconds us
-      self.new 0, us
+      self.new.tap do |tv|
+        tv[:tv_sec] = 0
+        tv[:tv_usec] = us
+      end
     end
     alias :us :microseconds
 
