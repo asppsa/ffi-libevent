@@ -23,27 +23,27 @@ module FFI::Libevent
 
       lock.object_id.tap do |id|
         @lock_mutex.synchronize{ @locks[id] = lock }
-        FFI::Libevent.logger.debug "Lock alloc #{id} #{lock.class}"
+        #FFI::Libevent.log Logger::DEBUG, "Lock alloc #{id} #{lock.class}"
       end
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
       nil
     end
 
     def lock_free ptr, _
       id = ptr.address
-      FFI::Libevent.logger.debug "Lock free #{id}"
+      #FFI::Libevent.log Logger::DEBUG, "Lock free #{id}"
       lock = @lock_mutex.synchronize{ @locks.delete(id) }
       raise "no such lock: #{id}" unless lock
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
     end
 
     def lock mode, ptr
       id = ptr.address
       l = @lock_mutex.synchronize{ @locks[id] }
       raise "no such lock: #{id}" unless l
-      FFI::Libevent.logger.debug "Lock #{id} (#{l.class}) #{mode == EVTHREAD_TRY ? 'try' : 'now'}"
+      #FFI::Libevent.log Logger::DEBUG, "Lock #{id} (#{l.class}) #{mode == EVTHREAD_TRY ? 'try' : 'now'}"
 
       case mode
       when EVTHREAD_TRY
@@ -59,13 +59,13 @@ module FFI::Libevent
     rescue ThreadError
       1
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
       1
     end
 
     def unlock _, ptr
       id = ptr.address
-      FFI::Libevent.logger.debug "Unlock #{id}"
+      #FFI::Libevent.log Logger::DEBUG, "Unlock #{id}"
       lock = @lock_mutex.synchronize{ @locks[id] }
       raise "no such lock: #{id}" unless lock
 
@@ -74,7 +74,7 @@ module FFI::Libevent
     rescue ThreadError
       1
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
       1
     end
 
@@ -82,25 +82,25 @@ module FFI::Libevent
       cond = ConditionVariable.new
       cond.object_id.tap do |id|
         @cond_mutex.synchronize{ @conds[id] = cond }
-        FFI::Libevent.logger.debug "Cond alloc #{id}"
+        #FFI::Libevent.log Logger::DEBUG, "Cond alloc #{id}"
       end
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
       nil
     end
 
     def cond_free ptr
       id = ptr.address
-      FFI::Libevent.logger.debug "Cond free #{id}"
+      #FFI::Libevent.log Logger::DEBUG, "Cond free #{id}"
       cond = @cond_mutex.synchronize{ @conds.delete(id) }
       raise "no such cond: #{id}" unless cond
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
     end
 
     def signal ptr, broadcast
       id = ptr.address
-      FFI::Libevent.logger.debug "Signal #{id}"
+      #FFI::Libevent.log Logger::DEBUG, "Signal #{id}"
       cond = @cond_mutex.synchronize{ @conds[id] }
       raise "no such cond: #{id}" unless cond
       if broadcast == 1
@@ -112,19 +112,19 @@ module FFI::Libevent
     rescue ThreadError
       -1
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
       -1
     end
 
     def wait cond_ptr, lock_ptr, tv_ptr
-      FFI::Libevent.logger.debug "wait ..."
+      #FFI::Libevent.log Logger::DEBUG, "wait ..."
       cond_id = cond_ptr.address
       cond = @cond_mutex.synchronize{ @conds[cond_id] }
       raise "no such cond: #{cond_id}"
       lock_id = lock_ptr.address
       lock = @lock_mutex.synchronize{ @locks[lock_id] }
       raise "no such lock: #{lock_id}"
-      FFI::Libevent.logger.debug "wait #{cond_id}, #{lock_id}"
+      #FFI::Libevent.log Logger::DEBUG, "wait #{cond_id}, #{lock_id}"
 
       start,timeout = if tv_ptr.null?
                         [nil,nil]
@@ -132,7 +132,7 @@ module FFI::Libevent
                         [Time.now, FFI::Libevent::Timeval.new(tv_ptr).seconds]
                       end
 
-      FFI::Libevent.logger.debug "wait #{cond_id}, #{lock_id}, #{timeout}"
+      #FFI::Libevent.log Logger::DEBUG, "wait #{cond_id}, #{lock_id}, #{timeout}"
       cond.wait lock, timeout
 
       # If there's a possibility that the signal timed out, check that
@@ -145,7 +145,7 @@ module FFI::Libevent
     rescue ThreadError
       -1
     rescue Exception => e
-      FFI::Libevent.logger.debug "#{e}\n#{e.backtrace}"
+      #FFI::Libevent.log Logger::DEBUG, "#{e}\n#{e.backtrace}"
       -1
     end
 

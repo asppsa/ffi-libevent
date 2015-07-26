@@ -109,24 +109,34 @@ module FFI
     end
 
     ##
-    # Either pass nil to reset the logger to the default; a proc,
-    # which implements the logger#add interface; or pass an object
-    # that has an '#add' method (e.g. a stdlib logger)
+    # Used to set a proc to handle logging.  Accepts either an object
+    # that implements an `#add` method, like the stdlib logger, or a
+    # Proc that functions in the same manner as `Logger#add`.  Passing
+    # `nil` will revert the logger to libevent's default.
+    #
+    # FFI::Libevent's default (which is not the same as libevent's) is
+    # to log errors to STDERR.
     def self.logger= logger
       raise "logger does not respond to :add" unless logger.respond_to? :add
 
-      # Record both to prevent them being GCed
-      @logger_proc = logger.method(:add)
+      @logger_proc = if logger.respond_to?(:add)
+                       logger.method(:add)
+                     elsif logger.respond_to?(:call) || logger.nil?
+                       logger
+                     else
+                       raise "cannot use #{logger} as a logger"
+                     end
+
+      # Record the logger as well as the proc to prevent garbage collection
       @logger = logger
 
       _set_log_callback @logger_proc
       @logger
     end
 
-    ##
-    # Returns the current logger object
-    def self.logger
-      @logger
+    def self.log level, message
+      return unless @logger_proc
+      @logger_proc.call level, message
     end
 
     ##

@@ -107,6 +107,8 @@ module FFI::Libevent
 
       def call fd, events, _
         @block.call @what, events, @base
+      rescue Exception => e
+        FFI::Libevent.log Logger::ERROR, e
       end
     end
   end
