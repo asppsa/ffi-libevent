@@ -8,33 +8,98 @@ base = FFI::Libevent::Base.new
 trapper = FFI::Libevent::Event.new(base, "INT", FFI::Libevent::EV_SIGNAL) { base.loopbreak! }
 trapper.add!
 
-pinger, ponger = UNIXSocket.pair
+module Stats
+  @pinged = 0
+  @ponged = 0
+  @last_report = nil
+  @last_report_ponged = 0
 
-## PINGER
-wait_for_pong = nil
+  def self.inc_pinged
+    @pinged += 1
+  end
 
-wait_to_ping = FFI::Libevent::Event.new(base, pinger, FFI::Libevent::EV_WRITE) do
-  pinger << "PING"
-  wait_for_pong.add!
+  def self.inc_ponged
+    @ponged += 1
+
+    now = Time.now
+    if @last_report.nil? || now - @last_report >= 1
+      diff = @ponged - @last_report_ponged
+      puts "#{diff} pongs/sec"
+      @last_report = now
+      @last_report_ponged = @ponged
+    end
+  end
 end
 
-wait_for_pong = FFI::Libevent::Event.new(base, pinger, FFI::Libevent::EV_READ) do
-  puts pinger.recv(4)
-  wait_to_ping.add!
+class PingPong
+  PING = 'PING'
+  PONG = 'PONG'
+
+  def initialize base, fd
+    @base = base
+    @fd  = fd
+    @received = ''
+  end
+
+  def wait_to_write
+    @writer ||= self.method(:writer)
+    @wait_to_write ||= FFI::Libevent::Event.new(@base, @fd, FFI::Libevent::EV_WRITE, &@writer)
+  end
+
+  def wait_for_response
+    @reader ||= self.method(:reader)
+    @wait_for_response ||= FFI::Libevent::Event.new(@base, @fd, FFI::Libevent::EV_READ, &@reader)
+  end
 end
 
-## PONGER
-wait_for_ping = nil
-wait_to_pong = FFI::Libevent::Event.new(base, ponger, FFI::Libevent::EV_WRITE) do
-  ponger << "PONG"
-  wait_for_ping.add!
+class Pinger < PingPong
+  def reader *_
+    begin
+      while input = @fd.read_nonblock(4)
+        @received << input
+      end
+    rescue IO::EAGAINWaitReadable
+    end
+
+    if @received == PONG
+      @received = ''
+      wait_to_write.add!
+      Stats.inc_ponged
+    end
+  end
+
+  def writer *_
+    @fd << PING
+    wait_for_response.add!
+  end
 end
 
-wait_for_ping = FFI::Libevent::Event.new(base, ponger, FFI::Libevent::EV_READ) do
-  puts ponger.recv(4)
-  wait_to_pong.add!
+class Ponger < PingPong
+  def reader *_
+    begin
+      while input = @fd.read_nonblock(4)
+        @received << input
+      end
+    rescue IO::EAGAINWaitReadable
+    end
+
+    if @received == PING
+      @received = ''
+      wait_to_write.add!
+      Stats.inc_ponged
+    end
+  end
+
+  def writer *_
+    @fd << PONG
+    wait_for_response.add!
+  end
 end
 
-wait_to_ping.add!
-wait_for_ping.add!
+pinger_fd, ponger_fd = UNIXSocket.pair
+pinger = Pinger.new base, pinger_fd
+ponger = Ponger.new base, ponger_fd
+
+pinger.wait_to_write.add!
+ponger.wait_for_response.add!
 base.loop!
