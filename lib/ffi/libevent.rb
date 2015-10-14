@@ -78,7 +78,6 @@ module FFI
       return if @use_threads
 
       if RUBY_PLATFORM =~ /windows/ ||
-         RUBY_ENGINE == 'rbx' ||
          !self.respond_to?(:_use_pthreads) ||
          _use_pthreads != 0
         return self.use_ruby_locking!
