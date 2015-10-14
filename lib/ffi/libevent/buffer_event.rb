@@ -87,47 +87,7 @@ module FFI::Libevent
 
     def initialize ptr, base, what=nil
       @callbacks = {}
-      @rel = Releaser.new(base, what, @callbacks)
-      super ptr, @rel
-    end
-
-    def connect what
-      sockaddr = if what.respond_to? :to_sockaddr
-                   what.to_sockaddr
-                 elsif what.is_a? Array
-                   Addrinfo.new(what).to_sockaddr
-                 else
-                   what.to_s
-                 end
-
-      res = bufferevent_socket_connect(self, sockaddr, sockaddr.bytesize)
-      raise "Could not connect" unless res == 0
-      @rel.what = nil
-    end
-
-    def connect_hostname family, hostname, port, dns_base=nil
-      af = case family
-           when :INET, :inet
-             Socket::Constants::AF_INET
-           when :INET6, :inet6
-             Socket::Constants::AF_INET6
-           when Integer
-             family
-           end
-
-      res = bufferevent_socket_connect_hostname(self, dns_base, af, hostname, port)
-      unless res == 0
-        error = dns_error? || "Could not connect"
-        raise error
-      end
-      @rel.what = nil
-    end
-
-    def dns_error?
-      error_code = bufferevent_socket_get_dns_error(self)
-      if error_code != 0
-        Error::GAI.new error_code
-      end
+      super ptr, Releaser.new(base, what, @callbacks)
     end
 
     def set_callbacks(cbs)
@@ -303,11 +263,11 @@ module FFI::Libevent
     #def priority
     #end
 
-    def fd= what
-      res = bufferevent_setfd self, Event.fp_from_what(what)
-      raise "Could not set fd" unless res == 0
-      @rel.what = what
-    end
+    # def fd= what
+    #   res = bufferevent_setfd self, Event.fp_from_what(what)
+    #   raise "Could not set fd" unless res == 0
+    #   @rel.what = what
+    # end
 
     def fd
       res = bufferevent_getfd(self)
@@ -346,6 +306,55 @@ module FFI::Libevent
 
         ptr_pair.read_array_of_pointer(2).map do |ptr|
           self.new ptr, base, nil
+        end
+      end
+
+      def connect base, what, flags=0
+        sockaddr = if what.respond_to? :to_sockaddr
+                     what.to_sockaddr
+                   elsif what.is_a? Array
+                     Addrinfo.new(what).to_sockaddr
+                   else
+                     what.to_s
+                   end
+
+        ptr = FFI::Libevent.bufferevent_socket_new base, -1, flags
+        res = bufferevent_socket_connect(ptr, sockaddr, sockaddr.bytesize)
+
+        unless res == 0
+          FFI::Libevent.bufferevent_free ptr
+          raise "Could not connect"
+        end
+
+        self.new ptr, base, nil
+      end
+
+      def connect_hostname base, family, hostname, port, flags=0, dns_base=nil
+        af = case family
+             when :INET, :inet
+               Socket::Constants::AF_INET
+             when :INET6, :inet6
+               Socket::Constants::AF_INET6
+             when Integer
+               family
+             end
+
+        ptr = FFI::Libevent.bufferevent_socket_new base, -1, flags
+        res = bufferevent_socket_connect_hostname(ptr, dns_base, af, hostname, port)
+
+        unless res == 0
+          error = dns_error?(bev) || "Could not connect"
+          FFI::Libevent.bufferevent_free ptr
+          raise error
+        end
+
+        self.new ptr, base, nil
+      end
+
+      def dns_error? bev
+        error_code = bufferevent_socket_get_dns_error(bev)
+        if error_code != 0
+          Error::GAI.new error_code
         end
       end
     end
